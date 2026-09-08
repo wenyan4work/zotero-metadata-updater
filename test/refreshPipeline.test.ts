@@ -427,7 +427,7 @@ describe("publisher refresh", function () {
             <meta name="citation_title" content="Updated title">
             <meta name="citation_journal_title" content="Updated journal">
             <meta name="citation_author" content="New Author">
-            <meta name="citation_author" content="">
+            <meta name="citation_author">
           </head></html>`),
           url: "https://journals.plos.org/article",
         },

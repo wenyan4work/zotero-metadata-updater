@@ -297,6 +297,33 @@ describe("publisher extraction", function () {
     }
   });
 
+  it("retains missing-value author declarations so they cannot truncate creators", function () {
+    for (const key of [
+      "citation_author",
+      "dc.creator",
+      "dcterms.creator",
+      "dc.contributor.author",
+    ]) {
+      const result = extractPublisherPage(
+        page(
+          `<html><head>
+          <meta name="citation_title" content="Article">
+          <meta name="citation_journal_title" content="Example Journal">
+          <meta name="dc.title" content="Article">
+          <meta name="dc.source" content="Example Journal">
+          <meta name="dc.date" content="2024">
+          <meta name="${key}" content="Valid Author">
+          <meta name="${key}">
+        </head></html>`,
+          "https://journals.plos.org/article",
+        ),
+        { viaDOI: false },
+      );
+      assert.exists(result.record, key);
+      assert.isUndefined(result.record?.authors, key);
+    }
+  });
+
   it("uses a complete alternative author list when one source is incomplete", function () {
     const result = extractPublisherPage(
       page(

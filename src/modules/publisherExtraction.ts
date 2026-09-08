@@ -166,10 +166,12 @@ function collectMetadata(document: Document): Metadata {
       element.getAttribute("itemprop");
     const content =
       element.getAttribute("content") ?? element.getAttribute("value");
-    if (!name || content === null) continue;
+    if (!name) continue;
     const key = normalizedMetaName(name);
     if (!key) continue;
-    (result[key] ||= []).push(content);
+    // Keep missing values as invalid declarations. In particular, an author
+    // tag without content must invalidate the whole source author list.
+    (result[key] ||= []).push(content ?? "");
   }
   return result;
 }
