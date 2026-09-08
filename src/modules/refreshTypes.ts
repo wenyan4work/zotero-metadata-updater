@@ -1,7 +1,18 @@
 /** Data-only contracts. Remote data must never be passed wholesale to Zotero. */
 export const REFRESH_FIELDS = [
-  "title", "publicationTitle", "proceedingsTitle", "date", "volume", "issue",
-  "pages", "publisher", "DOI", "ISSN", "ISBN", "url", "abstractNote",
+  "title",
+  "publicationTitle",
+  "proceedingsTitle",
+  "date",
+  "volume",
+  "issue",
+  "pages",
+  "publisher",
+  "DOI",
+  "ISSN",
+  "ISBN",
+  "url",
+  "abstractNote",
 ] as const;
 export type RefreshField = (typeof REFRESH_FIELDS)[number];
 export type RefreshFields = Partial<Record<RefreshField, string>>;
@@ -33,12 +44,29 @@ export interface FieldPatch {
   creators?: Creator[];
   changedFields: string[];
 }
-export type Outcome = "updated" | "unchanged" | "skipped" | "failed" | "cancelled";
+export type Outcome =
+  | "updated"
+  | "unchanged"
+  | "skipped"
+  | "failed"
+  | "cancelled";
 export type Reason =
-  | "unsupported" | "not-editable" | "missing-link" | "invalid-url"
-  | "unavailable" | "timeout" | "too-large" | "budget" | "unsupported-page"
-  | "uncertain-publisher" | "ambiguous" | "doi-mismatch" | "incomplete"
-  | "concurrent-edit" | "write-failed" | "cancelled";
+  | "unsupported"
+  | "not-editable"
+  | "missing-link"
+  | "invalid-url"
+  | "unavailable"
+  | "timeout"
+  | "too-large"
+  | "budget"
+  | "unsupported-page"
+  | "uncertain-publisher"
+  | "ambiguous"
+  | "doi-mismatch"
+  | "incomplete"
+  | "concurrent-edit"
+  | "write-failed"
+  | "cancelled";
 export interface ItemResult {
   id: number;
   title: string;
@@ -49,7 +77,9 @@ export interface ItemResult {
   changedFields: string[];
 }
 export class RefreshError extends Error {
-  constructor(public reason: Reason) { super(reason); }
+  constructor(public reason: Reason) {
+    super(reason);
+  }
 }
 export interface RetrievedPage {
   document: Document;

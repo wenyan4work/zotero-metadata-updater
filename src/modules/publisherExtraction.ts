@@ -236,7 +236,7 @@ function normalizeDate(value: unknown, document: Document) {
   if (!text) return undefined;
 
   const iso = text.match(
-    /\b(1[5-9]\d{2}|20\d{2}|21\d{2})(?:[-/.](\d{1,2})(?:[-/.](\d{1,2}))?)?(?:\b|T)/,
+    /^(1[5-9]\d{2}|20\d{2}|21\d{2})(?:[-/.](\d{1,2})(?:[-/.](\d{1,2}))?)?(?:\b|T)/,
   );
   if (iso) {
     const year = iso[1];
@@ -245,7 +245,7 @@ function normalizeDate(value: unknown, document: Document) {
     if (month < 1 || month > 12) return undefined;
     if (!iso[3]) return `${year}-${String(month).padStart(2, "0")}`;
     const day = Number(iso[3]);
-    if (day < 1 || day > 31) return undefined;
+    if (!validCalendarDay(Number(year), month, day)) return undefined;
     return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(
       2,
       "0",
@@ -288,13 +288,23 @@ function normalizeDate(value: unknown, document: Document) {
   if (monthName) {
     const month = months[monthName[named ? 1 : 2].toLowerCase()];
     const day = Number(monthName[named ? 2 : 1]);
-    if (!month || day < 1 || day > 31) return undefined;
     const year = monthName[3];
+    if (!month || !validCalendarDay(Number(year), Number(month), day))
+      return undefined;
     return `${year}-${month}-${String(day).padStart(2, "0")}`;
   }
 
   const year = text.match(/\b(1[5-9]\d{2}|20\d{2}|21\d{2})\b/);
   return year?.[1];
+}
+
+function validCalendarDay(year: number, month: number, day: number): boolean {
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return (
+    parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() === month - 1 &&
+    parsed.getUTCDate() === day
+  );
 }
 
 function firstDate(metadata: Metadata, keys: string[], document: Document) {
@@ -335,7 +345,7 @@ function firstIdentifier(
     if (kind === "issn") {
       const match = text.match(/\b\d{4}[-\s]?\d{3}[\dXx]\b/);
       if (match) {
-        const digits = match[0].replace(/\s/g, "");
+        const digits = match[0].replace(/[-\s]/g, "");
         return `${digits.slice(0, 4)}-${digits.slice(4)}`.toUpperCase();
       }
     } else {

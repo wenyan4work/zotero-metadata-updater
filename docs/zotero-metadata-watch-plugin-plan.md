@@ -88,11 +88,11 @@ The plugin should freely search for better metadata, but only modify records whe
 
 ## 3. Default Behavior by Use Case
 
-| Use case | Detection goal | Default action |
-|---|---|---|
-| Incorrect metadata after PDF import | Determine whether the parent item conflicts with the PDF or whether a stronger matching record exists | Investigate automatically; show a correction proposal if identity or existing populated fields would change |
-| arXiv preprint becomes published | Detect a verified journal/conference publication corresponding to the preprint | Show a publication-promotion proposal; optionally allow strict automatic promotion |
-| Early-view article receives final citation | Detect added volume, issue, pages, article number, or final citation date for the same record | Automatically fill verified missing, unprotected fields; review changes to existing consequential values |
+| Use case                                   | Detection goal                                                                                        | Default action                                                                                              |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Incorrect metadata after PDF import        | Determine whether the parent item conflicts with the PDF or whether a stronger matching record exists | Investigate automatically; show a correction proposal if identity or existing populated fields would change |
+| arXiv preprint becomes published           | Detect a verified journal/conference publication corresponding to the preprint                        | Show a publication-promotion proposal; optionally allow strict automatic promotion                          |
+| Early-view article receives final citation | Detect added volume, issue, pages, article number, or final citation date for the same record         | Automatically fill verified missing, unprotected fields; review changes to existing consequential values    |
 
 The default user-facing promise should be:
 
@@ -138,17 +138,17 @@ The core plugin should work without:
 
 ### 5.1 Core providers
 
-| Provider | Primary role | Notes |
-|---|---|---|
-| **Crossref** | Published DOI metadata, DOI lookup, publication candidate search, relationship metadata | Primary published-record provider |
-| **arXiv** | Preprint metadata, arXiv identifiers, author-supplied DOI and journal-reference information | Primary preprint provider |
-| **DataCite** | DOI resolution for records outside Crossref | DOI fallback |
-| **DBLP** | Conference and computer-science publication discovery | Important for proceedings and non-DOI conference coverage |
+| Provider     | Primary role                                                                                | Notes                                                     |
+| ------------ | ------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| **Crossref** | Published DOI metadata, DOI lookup, publication candidate search, relationship metadata     | Primary published-record provider                         |
+| **arXiv**    | Preprint metadata, arXiv identifiers, author-supplied DOI and journal-reference information | Primary preprint provider                                 |
+| **DataCite** | DOI resolution for records outside Crossref                                                 | DOI fallback                                              |
+| **DBLP**     | Conference and computer-science publication discovery                                       | Important for proceedings and non-DOI conference coverage |
 
 ### 5.2 Optional provider
 
-| Provider | Role | Policy |
-|---|---|---|
+| Provider     | Role                                                          | Policy                                                  |
+| ------------ | ------------------------------------------------------------- | ------------------------------------------------------- |
 | **OpenAlex** | Broader discovery, linkage evidence, bibliographic enrichment | Optional; should not be required for core functionality |
 
 ### 5.3 Authority should be field-specific
@@ -649,19 +649,19 @@ A populated title, author list, year, DOI, or venue should therefore be treated 
 
 # 16. Recommended Default Update Policy
 
-| Proposed change | Default behavior |
-|---|---|
-| Fill missing volume / issue / pages for verified same record | Automatic |
-| Fill missing article number | Automatic |
-| Fill missing formal DOI after verified publication transition | Review |
-| Replace existing title | Review |
-| Replace existing creator list | Review |
-| Change citation year | Review |
-| Change DOI | Review |
-| Change Zotero item type | Review |
+| Proposed change                                                    | Default behavior                       |
+| ------------------------------------------------------------------ | -------------------------------------- |
+| Fill missing volume / issue / pages for verified same record       | Automatic                              |
+| Fill missing article number                                        | Automatic                              |
+| Fill missing formal DOI after verified publication transition      | Review                                 |
+| Replace existing title                                             | Review                                 |
+| Replace existing creator list                                      | Review                                 |
+| Change citation year                                               | Review                                 |
+| Change DOI                                                         | Review                                 |
+| Change Zotero item type                                            | Review                                 |
 | Promote preprint to publication via explicit verified relationship | Review; optional strict automatic mode |
-| Replace record based only on fuzzy matching | Never automatic in v1 |
-| Delete metadata because provider returned an empty field | Never automatic |
+| Replace record based only on fuzzy matching                        | Never automatic in v1                  |
+| Delete metadata because provider returned an empty field           | Never automatic                        |
 
 ---
 
@@ -997,15 +997,15 @@ No always-on cloud server should be required.
 
 These are plugin policy defaults rather than provider requirements.
 
-| State | Suggested interval |
-|---|---|
-| Newly imported PDF | Immediately after recognition settles |
-| Recent preprint | Weekly |
-| Older unchanged preprint | Monthly, then potentially quarterly |
-| Early-view publication | Weekly initially |
-| Older early-view publication | Monthly |
-| Stable published record | Every 90 days or manual only |
-| Provider failure | Exponential backoff |
+| State                        | Suggested interval                    |
+| ---------------------------- | ------------------------------------- |
+| Newly imported PDF           | Immediately after recognition settles |
+| Recent preprint              | Weekly                                |
+| Older unchanged preprint     | Monthly, then potentially quarterly   |
+| Early-view publication       | Weekly initially                      |
+| Older early-view publication | Monthly                               |
+| Stable published record      | Every 90 days or manual only          |
+| Provider failure             | Exponential backoff                   |
 
 ---
 

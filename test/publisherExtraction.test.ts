@@ -29,6 +29,23 @@ function page(
 }
 
 describe("publisher extraction", function () {
+  it("omits impossible dates and retains valid leap days", function () {
+    for (const [date, expected] of [
+      ["2025-02-30", undefined],
+      ["February 29, 2025", undefined],
+      ["February 29, 2024", "2024-02-29"],
+    ]) {
+      const result = extractPublisherPage(
+        page(
+          `<html><head><meta name="citation_title" content="An article"><meta name="citation_journal_title" content="PLOS ONE"><meta name="citation_date" content="${date}"></head></html>`,
+          "https://journals.plos.org/article",
+        ),
+        { viaDOI: false },
+      );
+      assert.equal(result.record?.fields.date, expected);
+    }
+  });
+
   it("normalizes DOI resolver values and rejects broken values", function () {
     assert.equal(
       normalizeDOI(" DOI: https://doi.org/10.1371/JOURNAL.PONE.0000308. "),
@@ -117,7 +134,7 @@ describe("publisher extraction", function () {
           <meta name="citation_author" content="Alex Lee">
           <meta name="citation_journal_title" content="Example Journal">
         </head></html>`,
-        "https://journals.example/repeated",
+        "https://journals.plos.org/repeated",
       ),
       { viaDOI: false },
     );

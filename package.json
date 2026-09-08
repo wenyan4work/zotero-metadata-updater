@@ -2,9 +2,9 @@
   "name": "zotero-plugin-template",
   "type": "module",
   "version": "3.1.0",
-  "description": "Zotero Plugin Template",
+  "description": "Manual DOI-first publisher metadata refresh for Zotero 10",
   "config": {
-    "addonName": "Zotero Plugin Template",
+    "addonName": "Publisher Metadata Refresh",
     "addonID": "addontemplate@euclpts.com",
     "addonRef": "addontemplate",
     "addonInstance": "AddonTemplate",
@@ -26,7 +26,7 @@
     "lint:check": "prettier --check . && eslint .",
     "lint:fix": "prettier --write . && eslint . --fix",
     "release": "zotero-plugin release",
-    "test": "zotero-plugin test",
+    "test": "tsc --noEmit -p test/tsconfig.json && zotero-plugin test --exit-on-finish",
     "update-deps": "npm update --save"
   },
   "dependencies": {
