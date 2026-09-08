@@ -30,14 +30,19 @@ updates preserving item identity and user-managed data. No type conversion.
 - Installed Zotero 10.0.1 / Gecko 140.14 confirmed. Native cancellable timers are
   used because the legacy `Zotero.setTimeout` type entry is absent at runtime.
 - `npm run build`, `npm run lint:check`, and test type checking pass.
-- Isolated Zotero suite passes 42 tests, including PLOS DOI and PMLR URL live
+- Isolated Zotero suite passes 43 tests, including PLOS DOI and PMLR URL live
   checks, real transaction rollback, attachment/PDF bytes and annotations,
   unsaved Extra edits, and multi-window cancellation/deadlines.
 - Independent review of `9a0df9f` identified five issues: DOI identity across
   indirect links, DOI suffix punctuation, non-scholarly pages, page-range versus
   article-number precedence, and acceptance/creation date misuse. All have
-  focused regressions and fixes. Final re-review pending.
-- Removed the upstream template update URL from the installable manifest.
+  focused regressions and fixes. Re-review approved `bf7aee9`, including a
+  subsequent encoded publisher-URL DOI fix.
+- Replaced the upstream template updater with a reserved `.invalid` development
+  URL and disabled scaffold manifest rewriting. Zotero 10 rejected absent and
+  empty update URLs; the reserved URL installs and all 43 tests pass.
+  Independent review approved the final manifest/config snapshot and confirmed
+  the non-empty URL requirement in installed Zotero code.
 - Initial sandbox runs could not write the scaffold notifier cache or launch
   Zotero. Build/test execution used environment-approved desktop permissions;
   the test profile/data remained isolated and the global process-kill command
@@ -64,5 +69,7 @@ best effort. Unsupported/challenged pages are skipped. No manual rollback/histor
 is provided. DNS addresses are checked before each request; DNS rebinding
 resistance is not independently verified because connection resolution remains
 controlled by Gecko. The packaged artifact retains the scaffold's development
-identifier and version; no release publishing or automatic update endpoint is
-configured.
+identifier and version; no release publishing or functioning automatic update
+endpoint is configured. Zotero requires a non-empty updater URL, so this build
+uses `https://publisher-metadata-refresh.invalid/update.json`.
+Automatic update checks may still run and fail against that reserved address.

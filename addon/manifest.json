@@ -12,6 +12,7 @@
   "applications": {
     "zotero": {
       "id": "__addonID__",
+      "update_url": "https://publisher-metadata-refresh.invalid/update.json",
       "strict_min_version": "10.0",
       "strict_max_version": "10.*"
     }

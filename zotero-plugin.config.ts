@@ -13,7 +13,7 @@ export default defineConfig({
 
   build: {
     assets: ["addon/**/*.*"],
-    // The source manifest defines compatibility and intentionally has no updater.
+    // Keep source compatibility and the non-resolving development updater URL.
     makeManifest: { enable: false },
     define: {
       ...pkg.config,
