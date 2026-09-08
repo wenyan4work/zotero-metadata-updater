@@ -445,6 +445,25 @@ function dedupeAuthors(authors: Author[]) {
   return authors.slice();
 }
 
+/**
+ * Parse a declared author list as one unit. A partially parsed list can be
+ * missing creators, and metadataWriter would otherwise replace the complete
+ * local creator list with that truncated result. Callers can still fall back
+ * to another metadata source when this returns an empty list.
+ */
+function parseAuthorList(
+  values: unknown[],
+  parse: (value: unknown) => Author | undefined,
+): Author[] {
+  const authors: Author[] = [];
+  for (const value of values) {
+    const author = parse(value);
+    if (!author) return [];
+    authors.push(author);
+  }
+  return dedupeAuthors(authors);
+}
+
 function schemaArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : value === undefined ? [] : [value];
 }
@@ -604,10 +623,8 @@ function buildSchemaCandidate(
     schemaText(node.headline, document, 2_000) ||
     schemaText(node.name, document, 2_000) ||
     schemaText(node.alternativeHeadline, document, 2_000);
-  const authors = dedupeAuthors(
-    schemaArray(node.author)
-      .map((author) => authorFromSchema(author, document))
-      .filter((author): author is Author => Boolean(author)),
+  const authors = parseAuthorList(schemaArray(node.author), (author) =>
+    authorFromSchema(author, document),
   );
   const publisher = schemaPublisher(node.publisher, document);
   const identifiers = schemaIdentifiers(node, document);
@@ -718,10 +735,10 @@ function highwireCandidate(
   pageURL: string,
 ): InternalCandidate {
   const title = firstText(metadata, ["citation_title"], document, 2_000);
-  const authors = dedupeAuthors(
-    metadataValues(metadata, ["citation_author"])
-      .map((value) => splitPersonName(value, document))
-      .filter((author): author is Author => Boolean(author)),
+  const authors = parseAuthorList(
+    metadataValues(metadata, ["citation_author"]),
+    (value) =>
+      typeof value === "string" ? splitPersonName(value, document) : undefined,
   );
   const publicationDate = firstDate(
     metadata,
@@ -847,14 +864,14 @@ function dublinCoreCandidate(
     document,
     2_000,
   );
-  const authors = dedupeAuthors(
+  const authors = parseAuthorList(
     metadataValues(metadata, [
       "dc.creator",
       "dcterms.creator",
       "dc.contributor.author",
-    ])
-      .map((value) => splitPersonName(value, document))
-      .filter((author): author is Author => Boolean(author)),
+    ]),
+    (value) =>
+      typeof value === "string" ? splitPersonName(value, document) : undefined,
   );
   const date = firstDate(
     metadata,

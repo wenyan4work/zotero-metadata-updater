@@ -419,6 +419,35 @@ describe("publisher refresh", function () {
       }
     });
 
+    it("preserves existing creators when publisher author metadata is incomplete", async function () {
+      const beforeCreators = item.getCreatorsJSON();
+      const extraction = extractPublisherPage(
+        {
+          document: documentFor(`<html><head>
+            <meta name="citation_title" content="Updated title">
+            <meta name="citation_journal_title" content="Updated journal">
+            <meta name="citation_author" content="New Author">
+            <meta name="citation_author" content="">
+          </head></html>`),
+          url: "https://journals.plos.org/article",
+        },
+        { viaDOI: false },
+      );
+      assert.isUndefined(extraction.reason);
+      assert.exists(extraction.record);
+      assert.isUndefined(extraction.record?.authors);
+
+      const patch = await applyPublisherRecord(
+        snapshotItem(item),
+        extraction.record!,
+        new Cancellation(),
+      );
+      assert.include(patch.changedFields, "title");
+      await item.reload(["primaryData", "itemData", "creators"], true);
+      assert.equal(item.getField("title"), "Updated title");
+      assert.deepEqual(item.getCreatorsJSON(), beforeCreators);
+    });
+
     it("does not apply a stale snapshot or erase later manual edits", async function () {
       const before = snapshotItem(item);
       item.setField("title", "User changed title");

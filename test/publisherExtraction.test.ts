@@ -254,6 +254,81 @@ describe("publisher extraction", function () {
     ]);
   });
 
+  it("drops each metadata source's author list when any declared author is invalid", function () {
+    const cases = [
+      {
+        name: "HighWire",
+        html: `<html><head>
+          <meta name="citation_title" content="HighWire Article">
+          <meta name="citation_journal_title" content="Example Journal">
+          <meta name="citation_author" content="Valid Author">
+          <meta name="citation_author" content=" ">
+        </head></html>`,
+      },
+      {
+        name: "JSON-LD",
+        html: `<html><head><script type="application/ld+json">${JSON.stringify({
+          "@type": "ScholarlyArticle",
+          headline: "Schema Article",
+          author: [{ name: "Valid Author" }, {}],
+          isPartOf: { "@type": "Periodical", name: "Example Journal" },
+        })}</script></head></html>`,
+      },
+      {
+        name: "Dublin Core",
+        html: `<html><head>
+          <meta name="dc.title" content="Dublin Core Article">
+          <meta name="dc.source" content="Example Journal">
+          <meta name="dc.date" content="2024">
+          <meta name="dc.creator" content="Valid Author">
+          <meta name="dc.creator" content="">
+        </head></html>`,
+      },
+    ];
+
+    for (const candidate of cases) {
+      const result = extractPublisherPage(
+        page(candidate.html, "https://journals.plos.org/article"),
+        { viaDOI: false },
+      );
+      assert.isUndefined(result.reason, candidate.name);
+      assert.exists(result.record, candidate.name);
+      assert.isUndefined(result.record?.authors, candidate.name);
+    }
+  });
+
+  it("uses a complete alternative author list when one source is incomplete", function () {
+    const result = extractPublisherPage(
+      page(
+        `<html><head>
+          <meta name="citation_title" content="Complete Article">
+          <meta name="citation_journal_title" content="Example Journal">
+          <meta name="citation_author" content="Truncated Author">
+          <meta name="citation_author" content="">
+          <script type="application/ld+json">${JSON.stringify({
+            "@type": "ScholarlyArticle",
+            headline: "Complete Article",
+            author: [
+              {
+                "@type": "Person",
+                givenName: "Complete",
+                familyName: "Author",
+              },
+            ],
+            isPartOf: { "@type": "Periodical", name: "Example Journal" },
+          })}</script>
+        </head></html>`,
+        "https://journals.plos.org/article",
+      ),
+      { viaDOI: false },
+    );
+
+    assert.isUndefined(result.reason);
+    assert.deepEqual(result.record?.authors, [
+      { firstName: "Complete", lastName: "Author" },
+    ]);
+  });
+
   it("fills missing fields from JSON-LD and Dublin Core after HighWire", function () {
     const result = extractPublisherPage(
       page(
