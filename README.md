@@ -68,7 +68,8 @@ Tests cover extraction fixtures, transport limits, DOI/URL fallback, real Zotero
 transactions and preservation, abstract options, the settings pane, Crossref
 JSON mapping and failures, cancellation, and window registration. Two
 publisher-head fixtures were captured from PLOS and PMLR; other edge cases use
-synthetic fixtures. Live network smoke tests are optional:
+synthetic fixtures. A full Crossref response for the PLOS DOI was recorded on
+2026-09-07 for offline regression coverage. Live network smoke tests are optional:
 
 ```sh
 PUBLISHER_LIVE_SMOKE=1 \

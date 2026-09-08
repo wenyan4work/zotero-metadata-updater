@@ -1,12 +1,14 @@
+// Recorded from the Crossref works endpoint on 2026-09-07.
+import liveRecord from "./fixtures/crossref-recorded.json";
 import { assert } from "chai";
-import recorded from "./fixtures/crossref.json";
+import fixture from "./fixtures/crossref.json";
 import { crossrefURL, extractCrossrefRecord } from "../src/modules/crossref";
 import { RefreshError } from "../src/modules/refreshTypes";
 
 type CrossrefData = Record<string, unknown>;
 
 function copyFixture(): CrossrefData {
-  return JSON.parse(JSON.stringify(recorded)) as CrossrefData;
+  return JSON.parse(JSON.stringify(fixture)) as CrossrefData;
 }
 
 function messageOf(data: CrossrefData): CrossrefData {
@@ -18,8 +20,24 @@ function expectReason(data: unknown, doi: string, reason: string) {
 }
 
 describe("Crossref metadata extraction", function () {
+  it("maps a recorded Crossref response without network access", function () {
+    const record = extractCrossrefRecord(
+      liveRecord,
+      "10.1371/journal.pone.0000308",
+    );
+    assert.equal(
+      record.fields.title,
+      "Sharing Detailed Research Data Is Associated with Increased Citation Rate",
+    );
+    assert.equal(record.fields.date, "2007-03-21");
+    assert.equal(record.fields.volume, "2");
+    assert.equal(record.fields.issue, "3");
+    assert.equal(record.fields.pages, "e308");
+    assert.lengthOf(record.authors!, 3);
+  });
+
   it("maps a validated journal work and preserves exact DOI provenance", function () {
-    const record = extractCrossrefRecord(recorded, "10.5555/EXAMPLE(1)");
+    const record = extractCrossrefRecord(fixture, "10.5555/EXAMPLE(1)");
     assert.deepEqual(record.fields, {
       title: "A Crossref journal record",
       publicationTitle: "Journal of Recorded Metadata",
