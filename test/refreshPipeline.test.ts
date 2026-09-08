@@ -293,8 +293,8 @@ describe("publisher refresh", function () {
       }
     });
 
-    for (const provider of ["publisher", "crossref"])
-      it(`updates in place preserving attachments and user data (${provider})`, async function () {
+    it("preserves attachments and user data for publisher and Crossref updates", async function () {
+      for (const provider of ["publisher", "crossref"]) {
         const updateRecord =
           provider === "publisher"
             ? record
@@ -413,7 +413,8 @@ describe("publisher refresh", function () {
         } catch (error) {
           assert.fail(`Preservation integration error: ${String(error)}`);
         }
-      });
+      }
+    });
 
     it("does not apply a stale snapshot or erase later manual edits", async function () {
       const before = snapshotItem(item);
