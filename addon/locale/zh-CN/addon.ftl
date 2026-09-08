@@ -9,6 +9,7 @@ prefs-table-title = 标题
 prefs-table-detail = 详情
 tabpanel-lib-tab-label = 库标签
 tabpanel-reader-tab-label = 阅读器标签
+refresh-menu = metadata-updater
 refresh-command = 从出版商更新元数据
 refresh-immediate = 可用元数据将替换书目信息，摘要是否更新取决于设置。缺失字段将保留原值。
 refresh-progress = 已处理 { $completed } / { $total } 个条目

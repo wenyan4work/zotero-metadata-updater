@@ -29,6 +29,10 @@ export function registerRefreshWindow(win: _ZoteroTypes.MainWindow): void {
   const doc = win.document;
   const popup = doc.getElementById("zotero-itemmenu");
   if (!popup) return;
+  const submenu = doc.createXULElement("menu");
+  submenu.id = "metadata-updater-menu";
+  submenu.setAttribute("label", message("menu"));
+  const submenuPopup = doc.createXULElement("menupopup");
   const menu = doc.createXULElement("menuitem");
   menu.id = MENU_ID;
   menu.setAttribute("label", message("command"));
@@ -47,7 +51,9 @@ export function registerRefreshWindow(win: _ZoteroTypes.MainWindow): void {
   };
   menu.addEventListener("command", command);
   popup.addEventListener("popupshowing", showing);
-  popup.append(menu);
+  submenuPopup.append(menu);
+  submenu.append(submenuPopup);
+  popup.append(submenu);
   const style = doc.createElementNS(HTML, "link") as HTMLLinkElement;
   style.rel = "stylesheet";
   style.href = `chrome://${addon.data.config.addonRef}/content/refresh.css`;
@@ -55,7 +61,7 @@ export function registerRefreshWindow(win: _ZoteroTypes.MainWindow): void {
   windows.set(win, () => {
     popup.removeEventListener("popupshowing", showing);
     menu.removeEventListener("command", command);
-    menu.remove();
+    submenu.remove();
     style.remove();
     doc.getElementById("publisher-refresh-panel")?.remove();
   });

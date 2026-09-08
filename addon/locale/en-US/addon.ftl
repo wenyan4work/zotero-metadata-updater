@@ -9,6 +9,7 @@ prefs-table-title = Title
 prefs-table-detail = Detail
 tabpanel-lib-tab-label = Lib Tab
 tabpanel-reader-tab-label = Reader Tab
+refresh-menu = metadata-updater
 refresh-command = Update Metadata from Publisher
 refresh-immediate = Available metadata replaces bibliographic fields. Abstract updates follow your settings. Missing fields are preserved.
 refresh-progress = Processed { $completed } of { $total } items

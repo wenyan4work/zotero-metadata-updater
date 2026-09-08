@@ -79,6 +79,23 @@ describe("manual refresh window lifecycle", function () {
     registerRefreshWindow(first);
     registerRefreshWindow(first);
     registerRefreshWindow(second);
+    for (const win of [first, second]) {
+      const submenu = win.document.querySelector(
+        "#zotero-itemmenu > #metadata-updater-menu",
+      );
+      assert.exists(submenu);
+      assert.equal(submenu!.localName, "menu");
+      assert.equal(submenu!.getAttribute("label"), "metadata-updater");
+      assert.exists(
+        submenu!.querySelector(
+          ":scope > menupopup > #publisher-metadata-refresh-command",
+        ),
+      );
+      assert.lengthOf(
+        win.document.querySelectorAll("#metadata-updater-menu"),
+        1,
+      );
+    }
     assert.lengthOf(
       first.document.querySelectorAll("#publisher-metadata-refresh-command"),
       1,
@@ -88,6 +105,7 @@ describe("manual refresh window lifecycle", function () {
       1,
     );
     unregisterRefreshWindow(first);
+    assert.isNull(first.document.getElementById("metadata-updater-menu"));
     assert.isNull(
       first.document.getElementById("publisher-metadata-refresh-command"),
     );

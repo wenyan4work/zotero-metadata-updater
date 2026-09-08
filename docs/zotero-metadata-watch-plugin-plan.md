@@ -94,6 +94,8 @@ The plugin should freely search for better metadata, but only modify records whe
 | arXiv preprint becomes published           | Detect a verified journal/conference publication corresponding to the preprint                        | Show a publication-promotion proposal; optionally allow strict automatic promotion                          |
 | Early-view article receives final citation | Detect added volume, issue, pages, article number, or final citation date for the same record         | Automatically fill verified missing, unprotected fields; review changes to existing consequential values    |
 
+Accepted main-conference papers at ICLR, ICML, and NeurIPS use the enabled-by-default special workflow in Section 10.4: verified official metadata and item type are applied automatically in place. Other publication transitions retain the general review default.
+
 The default user-facing promise should be:
 
 > **Keep metadata current without silently changing what the user meant to cite.**
@@ -138,12 +140,22 @@ The core plugin should work without:
 
 ### 5.1 Core providers
 
-| Provider     | Primary role                                                                                | Notes                                                     |
-| ------------ | ------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| **Crossref** | Published DOI metadata, DOI lookup, publication candidate search, relationship metadata     | Primary published-record provider                         |
-| **arXiv**    | Preprint metadata, arXiv identifiers, author-supplied DOI and journal-reference information | Primary preprint provider                                 |
-| **DataCite** | DOI resolution for records outside Crossref                                                 | DOI fallback                                              |
-| **DBLP**     | Conference and computer-science publication discovery                                       | Important for proceedings and non-DOI conference coverage |
+| Provider     | Primary role                                                                                           | Notes                                                     |
+| ------------ | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------- |
+| **Crossref** | Published DOI metadata, DOI lookup, publication candidate search, relationship metadata                | Primary published-record provider                         |
+| **arXiv**    | Preprint metadata, arXiv identifiers, author-supplied comments, DOI, and journal-reference information | Primary preprint provider                                 |
+| **DataCite** | DOI resolution for records outside Crossref                                                            | DOI fallback                                              |
+| **DBLP**     | Conference and computer-science publication discovery                                                  | Important for proceedings and non-DOI conference coverage |
+
+The special conference workflow additionally uses these designated official sources:
+
+| Conference                  | Official metadata source                        | Required verification                                                    |
+| --------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------ |
+| ICLR                        | OpenReview                                      | Accepted main-conference record, not merely a submission                 |
+| ICML                        | PMLR (`proceedings.mlr.press`)                  | Paper belongs to the main ICML proceedings volume, not a workshop volume |
+| NeurIPS (historically NIPS) | Official proceedings (`proceedings.neurips.cc`) | Matching main-conference proceedings record                              |
+
+These sources supply the publication metadata bundle for Section 10.4; general DOI providers or aggregators do not substitute for an unavailable official record.
 
 ### 5.2 Optional provider
 
@@ -161,7 +173,8 @@ Instead:
 - use DOI-registration metadata as the main source for a corresponding published record;
 - use DBLP as strong corroboration for computer-science publication identity and conference metadata;
 - use aggregators mainly for discovery and corroboration rather than unrestricted field replacement;
-- allow targeted publisher-page retrieval as an explicit fallback.
+- use the designated official conference source for verified ICLR, ICML, and NeurIPS promotions under Section 10.4;
+- allow other targeted publisher-page retrieval as an explicit fallback.
 
 ---
 
@@ -239,7 +252,7 @@ Behavior:
 - optionally associate attachments appropriately;
 - do not silently merge the records.
 
-Automatic promotion should require explicit opt-in even when Policy A is selected.
+Automatic promotion should require explicit opt-in even when Policy A is selected, except for the special conference workflow in Section 10.4. Its single option is enabled by default and selects automatic in-place promotion for qualifying ICLR, ICML, and NeurIPS papers. This is an explicit exception to both the general review/opt-in default and Policy B: users who want separate versions for these papers must disable the special option. Field locks and intervening user edits remain protected.
 
 ---
 
@@ -441,6 +454,44 @@ Never auto-select a publication solely because it is the highest-ranked fuzzy ti
 A conference publication may be legitimate even without a DOI.
 
 The plugin should retain a stable provider identifier and verified proceedings URL rather than inventing a DOI.
+
+---
+
+## 10.4 Special processing for ICLR, ICML, and NeurIPS
+
+A single preference, **“Special processing for ICLR, ICML, and NeurIPS,”** controls all three conferences and is **enabled by default**. It applies only to accepted main-conference papers. Disabling it bypasses this workflow and retains the general metadata workflow; it does not undo previous updates.
+
+### Detection and routing
+
+1. When an arXiv identifier is available, retrieve arXiv comments first. If no identifier is available, comments are unavailable, or comments are inconclusive, inspect locally available PDF full text. Missing or unreadable PDFs leave detection unresolved; OCR and remote PDF uploads are not required.
+2. Require affirmative evidence that this paper was accepted or published at ICLR, ICML, or NeurIPS, recognizing the historical name NIPS. Capture the evidence context and conference/year when present. Conference mentions in references, “submitted to,” “under review,” and affiliated workshop acceptance do not qualify.
+3. Route ICLR to OpenReview, ICML to PMLR, and NeurIPS to its official proceedings website. Verify accepted status for ICLR and main-conference proceedings membership for ICML and NeurIPS.
+4. Verify that the official record describes the same paper using available identifiers, title, authors, and conference/year evidence. Do not select a candidate solely because it is the best fuzzy title match. Conflicting acceptance evidence or multiple plausible records require review, not automatic promotion.
+
+```text
+Option enabled
+    ↓
+arXiv comments → local PDF full text if unavailable or inconclusive
+    ↓
+Affirmative main-conference acceptance/publication evidence
+    ↓
+ICLR → OpenReview | ICML → PMLR | NeurIPS/NIPS → official proceedings
+    ↓
+Verify official publication status and paper identity
+    ↓
+Re-read item and check protected fields / concurrent edits
+    ↓
+Apply Conference Paper type + official metadata atomically
+```
+
+### Application and failure behavior
+
+- Automatically update the existing item to Zotero **Conference Paper** (`conferencePaper`) and apply the verified official metadata together in one Zotero transaction. Do not save the type change before the official metadata is available and verified.
+- Map available official citation fields to supported Zotero fields, including title, creators, proceedings title, conference name, publication date/year, publisher, volume, pages, DOI, and canonical publication URL as supplied. Do not invent absent values or erase valid local data because a source omits a field.
+- This workflow authorizes automatic type and citation-metadata changes as an exception to Section 16's general review defaults. It does not override field locks or intervening user edits. If a protected field or concurrent edit prevents a coherent promotion, leave the entire bundle unapplied and require review.
+- Preserve the item key, attachment keys and files, annotations, notes, tags, collections, related-item relationships, citation continuity, and arXiv identifier. Preserve values that cannot be represented after type conversion in the retained history rather than silently discarding them. The attached PDF may remain the preprint version.
+- Record acceptance evidence, the official source, and before/after values in update history; use the existing conditional undo policy. Repeated checks of unchanged source data must not produce duplicate updates or notifier loops.
+- Missing official records, delayed proceedings publication, malformed responses, or provider failures leave the item unchanged and eligible for retry through the existing retry/watch policy. Do not fall back to a different provider to authorize this special promotion. Recheck the option before applying; disabling it prevents pending special-workflow writes.
 
 ---
 
@@ -662,6 +713,8 @@ A populated title, author list, year, DOI, or venue should therefore be treated 
 | Promote preprint to publication via explicit verified relationship | Review; optional strict automatic mode |
 | Replace record based only on fuzzy matching                        | Never automatic in v1                  |
 | Delete metadata because provider returned an empty field           | Never automatic                        |
+
+Section 10.4 is the explicit exception: with the special option enabled (the default), verified main-conference ICLR, ICML, and NeurIPS promotions automatically apply the item type and available official citation fields as one bundle. Ambiguity, protected fields, concurrent edits, and empty remote values retain their safeguards.
 
 ---
 
@@ -1147,6 +1200,14 @@ Controls:
 
 ---
 
+## 31.2 Conference-processing preference
+
+Show one checkbox labeled **“Special processing for ICLR, ICML, and NeurIPS”**, checked by default. Explain that it automatically updates accepted main-conference papers in place using OpenReview, PMLR, or official NeurIPS proceedings, including changing the item type to Conference Paper after verification. Explain that disabling it restores the general workflow and is necessary when separate preprint/publication records are preferred.
+
+The item status pane should distinguish unresolved detection, waiting for official metadata/retry, needs review, and an applied conference promotion. Link applied changes to their official source and update history.
+
+---
+
 # 32. Review Queue
 
 Group pending proposals into categories:
@@ -1312,6 +1373,8 @@ Implement:
 
 - Crossref candidate search;
 - DBLP provider;
+- the Section 10.4 conference preference, arXiv-comment/local-PDF acceptance detection, and OpenReview/PMLR/NeurIPS official-source adapters;
+- verified atomic in-place conference promotion with preservation, history, and retry safeguards;
 - non-DOI publication handling;
 - fuzzy title/author matching;
 - ambiguity detection;
@@ -1330,6 +1393,8 @@ The plugin safely handles:
 - conference papers;
 - non-DOI records;
 - journal extensions.
+
+The Section 38.1 conference scenarios pass, including all three official-source routes, enabled-by-default behavior, disabled bypass, and no partial type change when metadata is unavailable.
 
 ---
 
@@ -1390,6 +1455,20 @@ Include:
 - article-number-only publication;
 - final page range appearing later;
 - citation year changing after final assignment.
+
+---
+
+## 38.1 Special conference workflow acceptance tests
+
+Use recorded arXiv comments, local PDF text, and official-provider fixtures to verify:
+
+- ICLR acceptance routes to an accepted OpenReview main-conference record; ICML routes to a main ICML PMLR volume; NeurIPS and historical NIPS route to official NeurIPS proceedings.
+- The single option defaults to enabled. Disabled mode bypasses special detection, provider requests, and promotion while leaving the general workflow available; disabling during a pending lookup prevents its write.
+- Conclusive arXiv comments take priority; absent identifiers, unavailable comments, and inconclusive comments fall back to local PDF full text. Missing/unreadable PDF text leaves detection unresolved.
+- Workshop acceptances, submission/under-review notices, and conference mentions in references do not qualify. Conflicting evidence, rejected/withdrawn OpenReview records, wrong proceedings membership, and ambiguous identity never cause automatic promotion.
+- A verified match updates `conferencePaper` and available official metadata in one transaction. A failed write rolls back the entire bundle; unavailable/delayed proceedings, provider errors, and malformed responses leave both type and metadata unchanged and permit retry.
+- Successful promotion preserves item/attachment keys, PDFs, annotations, notes, tags, collections, relationships, and the arXiv identifier. Missing remote values do not erase valid local data; type-incompatible values remain recoverable in history.
+- Field locks and edits made during lookup prevent conflicting automatic promotion. History and conditional undo remain valid; repeated unchanged checks and self-generated notifier events cause no duplicate writes.
 
 ---
 
@@ -1464,6 +1543,7 @@ Include:
 - arXiv;
 - DataCite;
 - DBLP;
+- enabled-by-default special processing for accepted main-conference ICLR, ICML, and NeurIPS papers via their designated official sources;
 - local identifier extraction;
 - PDF-text-assisted identity checking;
 - deterministic same-DOI refresh;
@@ -1500,7 +1580,10 @@ Straightforward citation completion
     → automatic
 
 Strongly evidenced publication transition
-    → review by default
+    → review by default, except verified Section 10.4 conference promotions
+
+Verified ICLR / ICML / NeurIPS promotion with special option enabled
+    → automatic in-place type + metadata bundle (option enabled by default)
 
 Ambiguous identity
     → never silently modify
@@ -1555,6 +1638,9 @@ Before implementation, resolve:
 
 # 46. Reference Links
 
+- OpenReview accepted-record retrieval: <https://docs.openreview.net/how-to-guides/data-retrieval-and-modification/how-to-get-all-notes-for-submissions-reviews-rebuttals-etc>
+- PMLR proceedings: <https://proceedings.mlr.press/>
+- NeurIPS official proceedings: <https://proceedings.neurips.cc/>
 - Zotero PDF metadata retrieval: <https://www.zotero.org/support/retrieve_pdf_metadata>
 - Zotero JavaScript API: <https://www.zotero.org/support/dev/client_coding/javascript_api>
 - Zotero changelog: <https://www.zotero.org/support/changelog>

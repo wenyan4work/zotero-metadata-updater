@@ -30,6 +30,7 @@ export type FluentMessageId =
   | 'refresh-failed'
   | 'refresh-immediate'
   | 'refresh-item'
+  | 'refresh-menu'
   | 'refresh-progress'
   | 'refresh-publisher-page'
   | 'refresh-reason-ambiguous'
