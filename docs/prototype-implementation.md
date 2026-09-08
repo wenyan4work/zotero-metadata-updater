@@ -92,4 +92,19 @@ Automatic update checks may still run and fail against that reserved address.
 - Parent owns settings, shared interfaces, transport, resolver, UI, integration
   tests and documentation. Crossref worker owns only parser and its fixtures/tests;
   its committed changes are integrated before full validation and review.
-- Validation and independent-review results are recorded below after completion.
+- Crossref worker commit `c7607ec` was integrated as `47385fd`; the clean,
+  task-created worker checkout was removed after integration.
+- `npm run build` and `npm run lint:check` pass. Final isolated Zotero 10.0.1
+  suite passes 65 tests, including live PLOS/PMLR and exact-DOI Crossref requests,
+  a recorded Crossref response, actual Settings checkbox bindings, abstract
+  preservation, and real attachment/annotation/transaction preservation.
+- First suite run exposed two test-fixture issues (an insufficient publisher
+  success fixture and an already-updated item reused for preservation assertions).
+  Both were corrected; the final suite passes. An initial sandboxed test runner
+  could not launch Zotero and was stopped before the desktop-permitted run.
+- Independent review approved `8a6ed5a` and the recorded-fixture/generated-types
+  delta through `9ebeea2`, with no confirmed findings. Chinese labels received
+  static review; the Settings interaction test used the runtime's default locale.
+  Rapid shutdown during a pending pane registration lacks a dedicated race test.
+- Production package: `.scaffold/build/publisher-metadata-refresh.xpi`.
+  No push, default-branch merge, release, or personal-profile modification.
