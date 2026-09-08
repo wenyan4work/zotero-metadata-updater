@@ -1,3 +1,7 @@
+import {
+  registerRefreshPreferences,
+  unregisterRefreshPreferences,
+} from "./modules/refreshPreferences";
 import { initLocale } from "./utils/locale";
 import {
   registerRefreshWindow,
@@ -11,7 +15,9 @@ async function onStartup() {
     Zotero.unlockPromise,
     Zotero.uiReadyPromise,
   ]);
+  if (!addon.data.alive) return;
   initLocale();
+  await registerRefreshPreferences();
   for (const win of Zotero.getMainWindows()) await onMainWindowLoad(win);
   addon.data.initialized = true;
 }
@@ -25,6 +31,7 @@ async function onMainWindowUnload(win: _ZoteroTypes.MainWindow) {
 function onShutdown() {
   addon.data.alive = false;
   shutdownRefresh();
+  unregisterRefreshPreferences();
   ztoolkit.unregisterAll();
   // @ts-expect-error - Plugin instance is not typed
   delete Zotero[addon.data.config.addonInstance];

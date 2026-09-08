@@ -3,6 +3,7 @@ import {
   Cancellation,
   createBudget,
   createPageFetcher,
+  createJSONFetcher,
   LIMITS,
 } from "../src/modules/publisherTransport";
 import { RefreshError } from "../src/modules/refreshTypes";
@@ -204,5 +205,69 @@ describe("bounded publisher transport", function () {
       "cancelled",
     );
     assert.isTrue(aborted);
+  });
+
+  describe("bounded Crossref JSON transport", function () {
+    it("requests JSON without credentials/retries and validates its content", async function () {
+      const fetch = createJSONFetcher(
+        async () => {},
+        async (_method, _url, options) => {
+          assert.equal(options!.headers!.Accept, "application/json");
+          assert.isTrue((options as { anon?: boolean }).anon);
+          assert.equal(options!.errorDelayMax, 0);
+          return htmlResponse(
+            200,
+            { "content-type": "application/json; charset=utf-8" },
+            '{"status":"ok"}',
+          );
+        },
+      );
+      assert.deepEqual(
+        await fetch(
+          "https://api.crossref.org/works/10.1234%2Fx",
+          createBudget(),
+          new Cancellation(),
+        ),
+        { status: "ok" },
+      );
+    });
+
+    it("rejects throttling, invalid JSON, HTML and oversized responses without retries", async function () {
+      for (const [response, expected] of [
+        [htmlResponse(429), "unavailable"],
+        [htmlResponse(404), "unavailable"],
+        [
+          htmlResponse(200, { "content-type": "application/json" }, "{"),
+          "incomplete",
+        ],
+        [htmlResponse(), "incomplete"],
+        [
+          htmlResponse(
+            200,
+            { "content-type": "application/json" },
+            " ".repeat(LIMITS.bytes + 1),
+          ),
+          "too-large",
+        ],
+      ] as const) {
+        let calls = 0;
+        const fetch = createJSONFetcher(
+          async () => {},
+          async () => {
+            calls++;
+            return response;
+          },
+        );
+        await fails(
+          fetch(
+            "https://api.crossref.org/works/10.1234%2Fx",
+            createBudget(),
+            new Cancellation(),
+          ),
+          expected,
+        );
+        assert.equal(calls, 1);
+      }
+    });
   });
 });

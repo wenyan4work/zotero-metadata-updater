@@ -159,12 +159,17 @@ export type PageFetcher = (
   cancellation: Cancellation,
 ) => Promise<RetrievedPage>;
 
-export function createPageFetcher(
+function createResponseFetcher(
   resolveHost = resolvePublicHost,
   request: typeof Zotero.HTTP.request = (...args) =>
     Zotero.HTTP.request(...args),
-): PageFetcher {
-  return async (input, budget, cancellation) => {
+  accept = "text/html,application/xhtml+xml",
+) {
+  return async (
+    input: string,
+    budget: RequestBudget,
+    cancellation: Cancellation,
+  ) => {
     let url = publicURL(input);
     const visited = new Set<string>();
     while (true) {
@@ -191,7 +196,7 @@ export function createPageFetcher(
           anon: true,
           foreground: false,
           timeout: Math.min(LIMITS.requestMs, remainingMs),
-          headers: { Accept: "text/html,application/xhtml+xml" },
+          headers: { Accept: accept },
           cancellerReceiver: (cancel: () => void) => {
             remove = cancellation.subscribe(cancel);
           },
@@ -242,25 +247,67 @@ export function createPageFetcher(
       if (response.status < 200 || response.status >= 300)
         throw new RefreshError("unavailable");
       const contentType = response.getResponseHeader("Content-Type") || "";
-      if (!/^(text\/html|application\/xhtml\+xml)\b/i.test(contentType))
-        throw new RefreshError("unsupported-page");
       const bytes = response.response as ArrayBuffer;
       if (!bytes || bytes.byteLength > LIMITS.bytes)
         throw new RefreshError("too-large");
-      const win = Zotero.getMainWindow();
-      const charset =
-        /charset\s*=\s*["']?([^;\s"']+)/i.exec(contentType)?.[1] || "utf-8";
-      let html: string;
-      try {
-        html = new win.TextDecoder(charset).decode(bytes);
-      } catch {
-        html = new win.TextDecoder().decode(bytes);
-      }
-      const document = new win.DOMParser().parseFromString(html, "text/html");
-      return { document, url: url.href };
+      return { bytes, contentType, url: url.href };
     }
+  };
+}
+
+export function createPageFetcher(
+  resolveHost = resolvePublicHost,
+  request: typeof Zotero.HTTP.request = (...args) =>
+    Zotero.HTTP.request(...args),
+): PageFetcher {
+  const fetch = createResponseFetcher(resolveHost, request);
+  return async (input, budget, cancellation) => {
+    const { bytes, contentType, url } = await fetch(
+      input,
+      budget,
+      cancellation,
+    );
+    if (!/^(text\/html|application\/xhtml\+xml)\b/i.test(contentType))
+      throw new RefreshError("unsupported-page");
+    const win = Zotero.getMainWindow();
+    const charset =
+      /charset\s*=\s*["']?([^;\s"']+)/i.exec(contentType)?.[1] || "utf-8";
+    let html: string;
+    try {
+      html = new win.TextDecoder(charset).decode(bytes);
+    } catch {
+      html = new win.TextDecoder().decode(bytes);
+    }
+    const document = new win.DOMParser().parseFromString(html, "text/html");
+    return { document, url };
   };
 }
 
 export const fetchPublisherPage: PageFetcher = (...args) =>
   createPageFetcher()(...args);
+
+export type JSONFetcher = (
+  url: string,
+  budget: RequestBudget,
+  cancellation: Cancellation,
+) => Promise<unknown>;
+export function createJSONFetcher(
+  resolveHost = resolvePublicHost,
+  request: typeof Zotero.HTTP.request = (...args) =>
+    Zotero.HTTP.request(...args),
+): JSONFetcher {
+  const fetch = createResponseFetcher(resolveHost, request, "application/json");
+  return async (url, budget, cancellation) => {
+    const response = await fetch(url, budget, cancellation);
+    if (!/^application\/json\b/i.test(response.contentType))
+      throw new RefreshError("incomplete");
+    try {
+      return JSON.parse(
+        new (Zotero.getMainWindow().TextDecoder)().decode(response.bytes),
+      );
+    } catch {
+      throw new RefreshError("incomplete");
+    }
+  };
+}
+export const fetchJSON: JSONFetcher = (...args) => createJSONFetcher()(...args);

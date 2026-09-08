@@ -152,7 +152,12 @@ export async function startRefresh(
         );
         const source = element("td");
         if (result.sourceURL) {
-          const link = element("a", message("publisher-page"));
+          const link = element(
+            "a",
+            message(
+              result.source === "crossref" ? "crossref" : "publisher-page",
+            ),
+          );
           link.href = result.sourceURL;
           link.addEventListener("click", (event) => {
             event.preventDefault();

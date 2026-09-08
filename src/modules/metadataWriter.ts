@@ -1,6 +1,8 @@
 import { Cancellation } from "./publisherTransport";
 import {
   REFRESH_FIELDS,
+  DEFAULT_REFRESH_OPTIONS,
+  type RefreshOptions,
   RefreshError,
   type ItemSnapshot,
   type PublisherRecord,
@@ -48,10 +50,12 @@ export function snapshotItem(item: Zotero.Item): ItemSnapshot {
 export function buildPatch(
   snapshot: ItemSnapshot,
   record: PublisherRecord,
+  options: Readonly<RefreshOptions> = DEFAULT_REFRESH_OPTIONS,
 ): FieldPatch {
   const fields: FieldPatch["fields"] = {};
   // Only fields valid on the existing type are present in the snapshot.
   for (const field of REFRESH_FIELDS) {
+    if (field === "abstractNote" && !options.updateAbstract) continue;
     const value = record.fields[field];
     if (
       typeof value === "string" &&
@@ -106,8 +110,9 @@ export async function applyPublisherRecord(
   snapshot: ItemSnapshot,
   record: PublisherRecord,
   cancellation: Cancellation,
+  options: Readonly<RefreshOptions> = DEFAULT_REFRESH_OPTIONS,
 ): Promise<FieldPatch> {
-  const patch = buildPatch(snapshot, record);
+  const patch = buildPatch(snapshot, record, options);
   let item: Zotero.Item | undefined;
   let mutated = false;
   try {

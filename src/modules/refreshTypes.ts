@@ -1,3 +1,12 @@
+export interface RefreshOptions {
+  updateAbstract: boolean;
+  crossrefFallback: boolean;
+}
+export const DEFAULT_REFRESH_OPTIONS: Readonly<RefreshOptions> = {
+  updateAbstract: true,
+  crossrefFallback: true,
+};
+
 /** Data-only contracts. Remote data must never be passed wholesale to Zotero. */
 export const REFRESH_FIELDS = [
   "title",
@@ -73,6 +82,7 @@ export interface ItemResult {
   outcome: Outcome;
   reason?: Reason;
   sourceURL?: string;
+  source?: "publisher" | "crossref";
   retrievedAt?: string;
   changedFields: string[];
 }

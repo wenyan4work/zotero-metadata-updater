@@ -1,7 +1,7 @@
 # Publisher Metadata Refresh
 
 A manual Zotero 10 prototype that updates existing journal articles, conference
-papers, and preprints from publisher-supplied metadata.
+papers, and preprints from publisher metadata, with exact-DOI Crossref fallback.
 
 Select one or more records, right-click, and choose **Update Metadata from
 Publisher**. Available bibliographic fields, authors, and abstracts are applied
@@ -9,12 +9,23 @@ immediately. The results panel shows changed fields, source links, and reasons
 for skipped or failed records. **Cancel remaining** stops pending work; already
 committed updates remain saved.
 
+## Settings
+
+In Zotero Settings, open **Publisher Metadata Refresh**. **Update abstracts** and
+**Use Crossref when publisher retrieval fails** are enabled by default. Changes
+apply to the next manual batch without restarting Zotero. Turning off abstract
+updates preserves existing abstracts, including empty ones, for both sources.
+Crossref receives only the DOI; no title/author searches are performed.
+
 ## Retrieval and preservation
 
 - Resolve the DOI first; if it is missing, broken, inaccessible, or unverifiable,
   try the item's URL. A matching publisher DOI wins over the local title/authors.
 - Repository and aggregator pages supply only explicit publication links. Their
-  metadata is never used to update an item. No title search or registry enrichment.
+  metadata is never used to update an item. No title search is performed.
+- If publisher retrieval fails, optionally query Crossref using the item DOI or
+  an explicit DOI item URL. Only supported records with a matching DOI and title
+  are accepted. The results panel identifies Crossref as the source.
 - Read HighWire citation tags, Schema.org JSON-LD, then Dublin Core from inert
   HTML. Unknown publisher provenance, conflicting identities, access challenges,
   and unsupported pages are skipped. Coverage is best effort, not universal.
@@ -29,7 +40,9 @@ committed updates remain saved.
 
 Requests use public HTTP(S) addresses with DNS and redirect validation, a 30-second
 request timeout, a 120-second item deadline, at most ten requests per item, and
-5 MB per response. Page scripts and unrestricted Zotero translators are not run.
+5 MB per response. When Crossref fallback is eligible, publisher attempts receive
+nine requests and 90 seconds, reserving one request and 30 seconds for Crossref.
+Page scripts and unrestricted Zotero translators are not run.
 
 ## Development and validation
 
@@ -52,7 +65,8 @@ finish. Never point development or integration tests at a personal profile or da
 directory. For `npm start`, use the isolated paths described in `.env.example`.
 
 Tests cover extraction fixtures, transport limits, DOI/URL fallback, real Zotero
-transactions and preservation, cancellation, and window registration. Two
+transactions and preservation, abstract options, the settings pane, Crossref
+JSON mapping and failures, cancellation, and window registration. Two
 publisher-head fixtures were captured from PLOS and PMLR; other edge cases use
 synthetic fixtures. Live network smoke tests are optional:
 

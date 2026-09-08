@@ -1,9 +1,11 @@
+import { readRefreshOptions } from "./refreshPreferences";
 import { applyPublisherRecord, snapshotItem } from "./metadataWriter";
 import { resolvePublisher } from "./publisherResolver";
 import { Cancellation } from "./publisherTransport";
 import {
   RefreshError,
   type ItemResult,
+  type RefreshOptions,
   type ItemSnapshot,
   type PublisherRecord,
 } from "./refreshTypes";
@@ -12,11 +14,13 @@ export interface BatchDependencies {
   resolve: (
     snapshot: ItemSnapshot,
     cancellation: Cancellation,
+    options: Readonly<RefreshOptions>,
   ) => Promise<PublisherRecord>;
   apply: typeof applyPublisherRecord;
 }
 const defaultDependencies: BatchDependencies = {
-  resolve: resolvePublisher,
+  resolve: (snapshot, cancellation, options) =>
+    resolvePublisher(snapshot, cancellation, undefined, options),
   apply: applyPublisherRecord,
 };
 
@@ -50,6 +54,7 @@ export async function runBatch(
   report: (result: ItemResult, completed: number) => void,
   dependencies: BatchDependencies = defaultDependencies,
 ): Promise<ItemResult[]> {
+  const options = Object.freeze(readRefreshOptions());
   const results: ItemResult[] = [];
   for (const entry of selection) {
     let result: ItemResult;
@@ -63,11 +68,19 @@ export async function runBatch(
       };
       try {
         cancellation.check();
-        const record = await dependencies.resolve(entry, cancellation);
+        const record = await dependencies.resolve(entry, cancellation, options);
         cancellation.check();
         result.sourceURL = record.sourceURL;
+        result.source = record.evidence.includes("Crossref exact DOI")
+          ? "crossref"
+          : "publisher";
         result.retrievedAt = record.retrievedAt;
-        const patch = await dependencies.apply(entry, record, cancellation);
+        const patch = await dependencies.apply(
+          entry,
+          record,
+          cancellation,
+          options,
+        );
         result.changedFields = patch.changedFields;
         result.outcome = patch.changedFields.length ? "updated" : "unchanged";
       } catch (error) {

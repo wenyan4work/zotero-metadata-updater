@@ -1,3 +1,4 @@
+import { extractCrossrefRecord } from "../src/modules/crossref";
 import { assert } from "chai";
 import { config } from "../package.json";
 import {
@@ -6,7 +7,7 @@ import {
   buildPatch,
 } from "../src/modules/metadataWriter";
 import { captureSelection, runBatch } from "../src/modules/refreshBatch";
-import { resolvePublisher } from "../src/modules/publisherResolver";
+import { resolvePublisher as resolveWithCrossref } from "../src/modules/publisherResolver";
 import {
   Cancellation,
   publicURL,
@@ -20,6 +21,16 @@ import {
 } from "../src/modules/refreshTypes";
 import recorded from "./fixtures/live/publisher-heads.json";
 import { extractPublisherPage } from "../src/modules/publisherExtraction";
+
+const resolvePublisher = (
+  snapshot: ItemSnapshot,
+  cancellation: Cancellation,
+  fetch: PageFetcher,
+) =>
+  resolveWithCrossref(snapshot, cancellation, fetch, {
+    updateAbstract: true,
+    crossrefFallback: false,
+  });
 
 const documentFor = (html: string) =>
   new (Zotero.getMainWindow().DOMParser)().parseFromString(html, "text/html");
@@ -282,109 +293,127 @@ describe("publisher refresh", function () {
       }
     });
 
-    it("updates in place while preserving attachments, annotations, notes and user data", async function () {
-      try {
-        const collection = new Zotero.Collection({
-          libraryID: Zotero.Libraries.userLibraryID,
-        });
-        collection.name = "Keep collection";
-        await collection.saveTx();
-        const related = new Zotero.Item("journalArticle");
-        related.setField("title", "Related");
-        await related.saveTx();
-        cleanup.push(related.id);
-        item.addToCollection(collection.id);
-        item.addRelatedItem(related);
-        await item.saveTx();
-        const note = new Zotero.Item("note");
-        note.libraryID = item.libraryID;
-        note.parentID = item.id;
-        note.setNote("<p>Keep note</p>");
-        await note.saveTx();
-        cleanup.push(note.id);
-        const attachment = new Zotero.Item("attachment");
-        attachment.libraryID = item.libraryID;
-        attachment.parentID = item.id;
-        const pdfPath = `${Zotero.DataDirectory.dir}/refresh-preservation-${item.key}.pdf`;
-        const pdfBytes =
-          "%PDF-1.1\n1 0 obj\n<< /Type /Catalog >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n";
-        await Zotero.File.putContentsAsync(pdfPath, pdfBytes);
-        cleanupFiles.push(pdfPath);
-        attachment.attachmentLinkMode =
-          Zotero.Attachments.LINK_MODE_LINKED_FILE;
-        attachment.attachmentPath = pdfPath;
-        attachment.attachmentContentType = "application/pdf";
-        attachment.setField("url", "https://journals.plos.org/keep.pdf");
-        await attachment.saveTx();
-        cleanup.push(attachment.id);
-        const annotation = new Zotero.Item("annotation");
-        annotation.libraryID = item.libraryID;
-        annotation.parentID = attachment.id;
-        annotation.annotationType = "highlight";
-        annotation.annotationText = "Keep highlight";
-        annotation.annotationComment = "Keep comment";
-        annotation.annotationColor = "#ffd400";
-        annotation.annotationPageLabel = "1";
-        (
-          annotation as unknown as { annotationSortIndex: string }
-        ).annotationSortIndex = "00000|000000|00000";
-        annotation.annotationPosition = JSON.stringify({
-          pageIndex: 0,
-          rects: [[0, 0, 10, 10]],
-        });
-        await annotation.saveTx();
-        cleanup.push(annotation.id);
-        const preserved = {
-          key: item.key,
-          type: item.itemTypeID,
-          created: item.dateAdded,
-          extra: item.getField("extra"),
-          tags: item.getTags(),
-          collections: item.getCollections(),
-          relations: item.getRelations(),
-          attachment: attachment.toJSON(),
-          note: note.toJSON(),
-          annotation: annotation.toJSON(),
-        };
+    for (const provider of ["publisher", "crossref"])
+      it(`updates in place preserving attachments and user data (${provider})`, async function () {
+        const updateRecord =
+          provider === "publisher"
+            ? record
+            : extractCrossrefRecord(
+                {
+                  status: "ok",
+                  "message-type": "work",
+                  message: {
+                    DOI: "10.1234/article",
+                    type: "journal-article",
+                    title: ["Publisher title"],
+                    abstract: "Publisher abstract",
+                    author: [{ given: "New", family: "Author" }],
+                  },
+                },
+                "10.1234/article",
+              );
         try {
-          const patch = await applyPublisherRecord(
-            snapshotItem(item),
-            record,
-            new Cancellation(),
-          );
-          assert.include(patch.changedFields, "title");
-          await item.reload(["primaryData", "itemData", "creators"], true);
-          assert.equal(item.getField("title"), "Publisher title");
-          assert.equal(item.getField("abstractNote"), "Publisher abstract");
-          assert.equal(item.getField("issue"), "Keep this issue");
-          assert.equal(item.key, preserved.key);
-          assert.equal(item.itemTypeID, preserved.type);
-          assert.equal(item.dateAdded, preserved.created);
-          assert.equal(item.getField("extra"), preserved.extra);
-          assert.deepEqual(item.getTags(), preserved.tags);
-          assert.deepEqual(item.getCollections(), preserved.collections);
-          assert.deepEqual(item.getRelations(), preserved.relations);
-          assert.deepEqual(item.getCreatorsJSON()[1], {
-            creatorType: "contributor",
-            name: "Keep Organization",
+          const collection = new Zotero.Collection({
+            libraryID: Zotero.Libraries.userLibraryID,
           });
-          assert.deepEqual(attachment.toJSON(), preserved.attachment);
-          assert.equal(await Zotero.File.getContentsAsync(pdfPath), pdfBytes);
-          assert.deepEqual(note.toJSON(), preserved.note);
-          assert.deepEqual(annotation.toJSON(), preserved.annotation);
-          const unchanged = await applyPublisherRecord(
-            snapshotItem(item),
-            record,
-            new Cancellation(),
-          );
-          assert.isEmpty(unchanged.changedFields);
-        } finally {
-          await collection.eraseTx();
+          collection.name = "Keep collection";
+          await collection.saveTx();
+          const related = new Zotero.Item("journalArticle");
+          related.setField("title", "Related");
+          await related.saveTx();
+          cleanup.push(related.id);
+          item.addToCollection(collection.id);
+          item.addRelatedItem(related);
+          await item.saveTx();
+          const note = new Zotero.Item("note");
+          note.libraryID = item.libraryID;
+          note.parentID = item.id;
+          note.setNote("<p>Keep note</p>");
+          await note.saveTx();
+          cleanup.push(note.id);
+          const attachment = new Zotero.Item("attachment");
+          attachment.libraryID = item.libraryID;
+          attachment.parentID = item.id;
+          const pdfPath = `${Zotero.DataDirectory.dir}/refresh-preservation-${item.key}.pdf`;
+          const pdfBytes =
+            "%PDF-1.1\n1 0 obj\n<< /Type /Catalog >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n";
+          await Zotero.File.putContentsAsync(pdfPath, pdfBytes);
+          cleanupFiles.push(pdfPath);
+          attachment.attachmentLinkMode =
+            Zotero.Attachments.LINK_MODE_LINKED_FILE;
+          attachment.attachmentPath = pdfPath;
+          attachment.attachmentContentType = "application/pdf";
+          attachment.setField("url", "https://journals.plos.org/keep.pdf");
+          await attachment.saveTx();
+          cleanup.push(attachment.id);
+          const annotation = new Zotero.Item("annotation");
+          annotation.libraryID = item.libraryID;
+          annotation.parentID = attachment.id;
+          annotation.annotationType = "highlight";
+          annotation.annotationText = "Keep highlight";
+          annotation.annotationComment = "Keep comment";
+          annotation.annotationColor = "#ffd400";
+          annotation.annotationPageLabel = "1";
+          (
+            annotation as unknown as { annotationSortIndex: string }
+          ).annotationSortIndex = "00000|000000|00000";
+          annotation.annotationPosition = JSON.stringify({
+            pageIndex: 0,
+            rects: [[0, 0, 10, 10]],
+          });
+          await annotation.saveTx();
+          cleanup.push(annotation.id);
+          const preserved = {
+            key: item.key,
+            type: item.itemTypeID,
+            created: item.dateAdded,
+            extra: item.getField("extra"),
+            tags: item.getTags(),
+            collections: item.getCollections(),
+            relations: item.getRelations(),
+            attachment: attachment.toJSON(),
+            note: note.toJSON(),
+            annotation: annotation.toJSON(),
+          };
+          try {
+            const patch = await applyPublisherRecord(
+              snapshotItem(item),
+              updateRecord,
+              new Cancellation(),
+            );
+            assert.include(patch.changedFields, "title");
+            await item.reload(["primaryData", "itemData", "creators"], true);
+            assert.equal(item.getField("title"), "Publisher title");
+            assert.equal(item.getField("abstractNote"), "Publisher abstract");
+            assert.equal(item.getField("issue"), "Keep this issue");
+            assert.equal(item.key, preserved.key);
+            assert.equal(item.itemTypeID, preserved.type);
+            assert.equal(item.dateAdded, preserved.created);
+            assert.equal(item.getField("extra"), preserved.extra);
+            assert.deepEqual(item.getTags(), preserved.tags);
+            assert.deepEqual(item.getCollections(), preserved.collections);
+            assert.deepEqual(item.getRelations(), preserved.relations);
+            assert.deepEqual(item.getCreatorsJSON()[1], {
+              creatorType: "contributor",
+              name: "Keep Organization",
+            });
+            assert.deepEqual(attachment.toJSON(), preserved.attachment);
+            assert.equal(await Zotero.File.getContentsAsync(pdfPath), pdfBytes);
+            assert.deepEqual(note.toJSON(), preserved.note);
+            assert.deepEqual(annotation.toJSON(), preserved.annotation);
+            const unchanged = await applyPublisherRecord(
+              snapshotItem(item),
+              updateRecord,
+              new Cancellation(),
+            );
+            assert.isEmpty(unchanged.changedFields);
+          } finally {
+            await collection.eraseTx();
+          }
+        } catch (error) {
+          assert.fail(`Preservation integration error: ${String(error)}`);
         }
-      } catch (error) {
-        assert.fail(`Preservation integration error: ${String(error)}`);
-      }
-    });
+      });
 
     it("does not apply a stale snapshot or erase later manual edits", async function () {
       const before = snapshotItem(item);

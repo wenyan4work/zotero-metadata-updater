@@ -73,3 +73,23 @@ identifier and version; no release publishing or functioning automatic update
 endpoint is configured. Zotero requires a non-empty updater URL, so this build
 uses `https://publisher-metadata-refresh.invalid/update.json`.
 Automatic update checks may still run and fail against that reserved address.
+
+## Settings and Crossref extension
+
+- Adds Zotero Settings checkboxes `updateAbstract` and `crossrefFallback`, both
+  enabled by default. Options are captured once per manual batch; changes apply
+  to the next batch. Disabled abstract updates preserve empty abstracts too.
+- Keeps DOI resolution then item-URL publisher retrieval. If neither succeeds,
+  Crossref receives the exact item DOI (or an explicit DOI item URL). There is no
+  title search or DOI discovery from arbitrary page content.
+- Eligible fallback batches reserve one request and 30 seconds for Crossref
+  within the existing ten-request, 120-second item limit. Publisher retrieval
+  gets nine requests and 90 seconds. Disabled/ineligible fallback retains the
+  original publisher budget. User cancellation stops both stages.
+- Crossref records pass DOI/type/title validation, map only supported fields,
+  and use the same transaction and concurrent-edit protections. Source links
+  identify Crossref; API URLs are never written to the item's URL field.
+- Parent owns settings, shared interfaces, transport, resolver, UI, integration
+  tests and documentation. Crossref worker owns only parser and its fixtures/tests;
+  its committed changes are integrated before full validation and review.
+- Validation and independent-review results are recorded below after completion.
