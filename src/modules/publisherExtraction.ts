@@ -13,7 +13,7 @@ import {
  * decides whether the identifier is reachable.
  */
 const DOI_PATTERN = /^10\.\d{4,9}\/[^\s"'\\]+$/i;
-const DOI_SEARCH_PATTERN = /10\.\d{4,9}\/[^\s"'?#&]+/gi;
+const DOI_SEARCH_PATTERN = /10\.\d{4,9}\/[^\s"']+/gi;
 
 const KNOWN_PUBLISHER_DOMAINS = [
   "acm.org",
@@ -244,10 +244,26 @@ function findDOIs(value: unknown) {
   if (!raw) return [];
   const exact = normalizeDOI(raw);
   if (exact) return [exact];
+  let sources = [raw];
+  if (/^https?:\/\//i.test(raw)) {
+    try {
+      const url = new URL(raw);
+      // Split URI components before decoding, so encoded punctuation within
+      // the DOI cannot become a query delimiter. Raw DOI '%' stays opaque.
+      sources = [
+        decodeURIComponent(url.pathname),
+        ...url.searchParams.values(),
+      ];
+    } catch {
+      return [];
+    }
+  }
   const values: string[] = [];
-  for (const match of raw.matchAll(DOI_SEARCH_PATTERN)) {
-    const doi = normalizeDOI(match[0]);
-    if (doi) values.push(doi);
+  for (const source of sources) {
+    for (const match of source.matchAll(DOI_SEARCH_PATTERN)) {
+      const doi = normalizeDOI(match[0]);
+      if (doi) values.push(doi);
+    }
   }
   return uniqueStrings(values);
 }

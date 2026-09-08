@@ -29,6 +29,26 @@ function page(
 }
 
 describe("publisher extraction", function () {
+  it("compares encoded publisher-path identifiers with raw metadata without double decoding", function () {
+    for (const doi of [
+      "10.5555/example(123)",
+      "10.5555/part<290::aid>3.0;2-p",
+      "10.5555/literal%28x%29",
+      "10.5555/part&section",
+    ]) {
+      const encodedURL = `https://onlinelibrary.wiley.com/doi/${encodeURIComponent(doi)}`;
+      const result = extractPublisherPage(
+        page(
+          `<html><head><meta name="citation_title" content="An article"><meta name="citation_journal_title" content="A journal"><meta name="citation_doi" content="${doi}"></head></html>`,
+          encodedURL,
+        ),
+        { viaDOI: true, expectedDOI: doi },
+      );
+      assert.isUndefined(result.reason, doi);
+      assert.equal(result.record?.fields.DOI, doi);
+    }
+  });
+
   it("round-trips opaque DOI suffixes and encoded resolver links", function () {
     for (const doi of [
       "10.5555/example(123)",
