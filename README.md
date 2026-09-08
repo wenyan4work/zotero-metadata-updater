@@ -24,7 +24,8 @@ committed updates remain saved.
 - Compare the original record with fresh data immediately before each
   transactional update. A concurrent edit causes a skip, not an overwrite.
 - No startup/import checks, background monitoring, PDF changes, type conversion,
-  persistent history, or plugin undo.
+  persistent history, or plugin undo. The prototype has no automatic update
+  endpoint.
 
 Requests use public HTTP(S) addresses with DNS and redirect validation, a 30-second
 request timeout, a 120-second item deadline, at most ten requests per item, and

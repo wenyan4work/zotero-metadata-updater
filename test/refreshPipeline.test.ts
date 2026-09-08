@@ -61,6 +61,37 @@ async function expectReason(action: Promise<unknown>, reason: string) {
 
 describe("publisher refresh", function () {
   describe("publisher resolution and request policy", function () {
+    it("preserves DOI identity through indirect links and resets only for item-URL fallback", async function () {
+      const calls: string[] = [];
+      const fetch: PageFetcher = async (url) => {
+        calls.push(url);
+        if (url.startsWith("https://doi.org/"))
+          return {
+            url: "https://arxiv.org/abs/1234.5678",
+            document: documentFor(
+              '<html><body><a href="https://journals.plos.org/article">Published version</a></body></html>',
+            ),
+          };
+        return {
+          url: recorded[0].url,
+          document: documentFor(recorded[0].html),
+        };
+      };
+      await expectReason(
+        resolvePublisher(
+          { ...base, fields: { DOI: "10.1234/article" } },
+          new Cancellation(),
+          fetch,
+        ),
+        "doi-mismatch",
+      );
+      assert.lengthOf(calls, 2);
+      calls.length = 0;
+      const result = await resolvePublisher(base, new Cancellation(), fetch);
+      assert.equal(calls[2], base.fields.url);
+      assert.equal(result.fields.DOI, "10.1371/journal.pone.0000308");
+    });
+
     it("rejects local, credentialed, non-HTTP and special-use destinations", function () {
       for (const url of [
         "file:///etc/passwd",
@@ -371,6 +402,17 @@ describe("publisher refresh", function () {
         "concurrent-edit",
       );
       assert.equal(item.getField("abstractNote"), "Unsaved user edit");
+    });
+
+    it("preserves unsaved user-managed fields before reloading metadata", async function () {
+      const before = snapshotItem(item);
+      item.setField("extra", "An unsaved user edit");
+      await expectReason(
+        applyPublisherRecord(before, record, new Cancellation()),
+        "concurrent-edit",
+      );
+      assert.equal(item.getField("extra"), "An unsaved user edit");
+      assert.equal(item.getField("title"), "Local title");
     });
 
     it("rolls back and reloads after a save failure", async function () {

@@ -11,6 +11,7 @@ import {
   type PublisherRecord,
 } from "../src/modules/refreshTypes";
 import type { BatchDependencies } from "../src/modules/refreshBatch";
+import { scheduleTimeout } from "../src/utils/timer";
 
 describe("manual refresh window lifecycle", function () {
   this.timeout(20_000);
@@ -173,5 +174,16 @@ describe("manual refresh window lifecycle", function () {
       first.document.getElementById("publisher-refresh-panel")!.textContent!,
       "Unchanged",
     );
+  });
+
+  it("keeps request deadlines alive when an unrelated window closes", async function () {
+    let fired = false;
+    const clear = scheduleTimeout(() => {
+      fired = true;
+    }, 20);
+    second.close();
+    await new Promise<void>((resolve) => first.setTimeout(resolve, 100));
+    clear();
+    assert.isTrue(fired);
   });
 });

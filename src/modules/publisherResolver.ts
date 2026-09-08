@@ -49,7 +49,7 @@ async function resolveWithBudget(
   const starts: { url: string; expectedDOI?: string; viaDOI: boolean }[] = [];
   if (doi)
     starts.push({
-      url: `https://doi.org/${encodeURI(doi).replace(/#/g, "%23").replace(/\?/g, "%3F")}`,
+      url: `https://doi.org/${doi.split("/").map(encodeURIComponent).join("/")}`,
       expectedDOI: doi,
       viaDOI: true,
     });
@@ -71,9 +71,13 @@ async function resolveWithBudget(
         const linkedDOI = /^(?:dx\.)?doi\.org$/.test(url.hostname)
           ? normalizeDOI(decodeURIComponent(url.pathname.slice(1)))
           : undefined;
-        const context = linkedDOI
-          ? { expectedDOI: linkedDOI, viaDOI: true }
-          : next;
+        if (linkedDOI && next.expectedDOI && linkedDOI !== next.expectedDOI) {
+          throw new RefreshError("doi-mismatch");
+        }
+        const context =
+          linkedDOI && !next.expectedDOI
+            ? { expectedDOI: linkedDOI, viaDOI: true }
+            : next;
         const page = await fetchPage(url.href, budget, cancellation);
         cancellation.check();
         const result = extractPublisherPage(page, context);
@@ -89,7 +93,8 @@ async function resolveWithBudget(
         if (links.length)
           queue.push({
             url: publicURL(links[0], page.url).href,
-            viaDOI: false,
+            expectedDOI: context.expectedDOI,
+            viaDOI: context.viaDOI,
           });
       } catch (error) {
         cancellation.check();

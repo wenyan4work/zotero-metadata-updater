@@ -29,6 +29,95 @@ function page(
 }
 
 describe("publisher extraction", function () {
+  it("round-trips opaque DOI suffixes and encoded resolver links", function () {
+    for (const doi of [
+      "10.5555/example(123)",
+      "10.5555/nested(a(b))",
+      "10.5555/terminal.",
+      "10.5555/part<290::aid>3.0;2-p",
+    ]) {
+      assert.equal(normalizeDOI(doi), doi);
+      assert.equal(
+        normalizeDOI(`https://doi.org/${encodeURIComponent(doi)}`),
+        doi,
+      );
+      const result = extractPublisherPage(
+        page(
+          `<html><head><meta name="citation_title" content="An article"><meta name="citation_journal_title" content="PLOS ONE"><meta name="citation_doi" content="${doi}"></head></html>`,
+          "https://journals.plos.org/article",
+        ),
+        { viaDOI: true, expectedDOI: doi },
+      );
+      assert.equal(result.record?.fields.DOI, doi);
+    }
+    assert.isUndefined(normalizeDOI("10.5555/a broken suffix"));
+  });
+
+  it("rejects publisher blogs, news and generic articles without scholarly evidence", function () {
+    for (const type of [
+      "BlogPosting",
+      "NewsArticle",
+      "Article",
+      ["Article", "NewsArticle"],
+    ]) {
+      const result = extractPublisherPage(
+        page(
+          `<html><head><script type="application/ld+json">${JSON.stringify({ "@type": type, headline: "Publisher news", author: { name: "News Author" } })}</script></head></html>`,
+          "https://www.nature.com/blog/news",
+        ),
+        { viaDOI: false },
+      );
+      assert.isUndefined(result.record, String(type));
+      assert.equal(result.reason, "unsupported-page", String(type));
+    }
+  });
+
+  it("uses schema article numbers only when no source provides pages", function () {
+    const schema = {
+      "@type": "ScholarlyArticle",
+      headline: "An article",
+      author: { name: "An Author" },
+      articleNumber: "e123",
+    };
+    const result = extractPublisherPage(
+      page(
+        `<html><head><script type="application/ld+json">${JSON.stringify(schema)}</script></head></html>`,
+        "https://journals.plos.org/article",
+      ),
+      { viaDOI: false },
+    );
+    assert.equal(result.record?.fields.pages, "e123");
+    const withRange = extractPublisherPage(
+      page(
+        `<html><head><meta name="citation_title" content="An article"><meta name="citation_journal_title" content="PLOS ONE"><meta name="citation_article_number" content="e123"><script type="application/ld+json">${JSON.stringify({ ...schema, pagination: "10-20" })}</script></head></html>`,
+        "https://journals.plos.org/article",
+      ),
+      { viaDOI: false },
+    );
+    assert.equal(withRange.record?.fields.pages, "10-20");
+  });
+
+  it("does not substitute acceptance or creation dates for publication dates", function () {
+    const html = `<html><head><meta name="citation_title" content="An article"><meta name="citation_journal_title" content="PLOS ONE"><meta name="citation_accepted_date" content="2020-01-01"><meta name="dcterms.title" content="An article"><meta name="dcterms.created" content="2019-01-01"><meta name="dcterms.source" content="PLOS ONE"><script type="application/ld+json">{"@type":"ScholarlyArticle","headline":"An article","dateCreated":"2018-01-01"}</script></head></html>`;
+    const result = extractPublisherPage(
+      page(html, "https://journals.plos.org/article"),
+      { viaDOI: false },
+    );
+    assert.exists(result.record);
+    assert.isUndefined(result.record?.fields.date);
+    const issued = extractPublisherPage(
+      page(
+        html.replace(
+          "</head>",
+          '<meta name="citation_issue_date" content="2022-04-01"><meta name="citation_publication_date" content="2021-02-01"><meta name="citation_online_date" content="2020-03-01"></head>',
+        ),
+        "https://journals.plos.org/article",
+      ),
+      { viaDOI: false },
+    );
+    assert.equal(issued.record?.fields.date, "2022-04-01");
+  });
+
   it("omits impossible dates and retains valid leap days", function () {
     for (const [date, expected] of [
       ["2025-02-30", undefined],
@@ -48,7 +137,7 @@ describe("publisher extraction", function () {
 
   it("normalizes DOI resolver values and rejects broken values", function () {
     assert.equal(
-      normalizeDOI(" DOI: https://doi.org/10.1371/JOURNAL.PONE.0000308. "),
+      normalizeDOI(" DOI: https://doi.org/10.1371/JOURNAL.PONE.0000308 "),
       "10.1371/journal.pone.0000308",
     );
     assert.equal(normalizeDOI("10.123"), undefined);

@@ -9,12 +9,11 @@ import {
 } from "./refreshTypes";
 
 /**
- * DOI syntax is deliberately kept narrow here.  The resolver is responsible
- * for deciding whether a DOI is reachable; extraction only needs a stable,
- * comparable representation of the identifier.
+ * Validate the DOI prefix while keeping its opaque suffix intact. The resolver
+ * decides whether the identifier is reachable.
  */
-const DOI_PATTERN = /10\.\d{4,9}\/[._;()/:A-Z0-9-]+/i;
-const DOI_SEARCH_PATTERN = /10\.\d{4,9}\/[._;()/:A-Z0-9-]+/gi;
+const DOI_PATTERN = /^10\.\d{4,9}\/[^\s"'\\]+$/i;
+const DOI_SEARCH_PATTERN = /10\.\d{4,9}\/[^\s"'?#&]+/gi;
 
 const KNOWN_PUBLISHER_DOMAINS = [
   "acm.org",
@@ -100,6 +99,7 @@ interface InternalCandidate {
   pageRange?: string;
   articleNumber?: string;
   articleLike: boolean;
+  scholarly?: boolean;
   evidence: string[];
   publisherNames: string[];
   publisherURLs: string[];
@@ -202,27 +202,48 @@ function uniqueStrings(values: string[]) {
 /** Normalize a DOI-like value for identity comparisons and Zotero writes. */
 export function normalizeDOI(value: string): string | undefined {
   if (typeof value !== "string") return undefined;
-
   let input = value
-    .replace(/&amp;/gi, "&")
-    .replace(/^\s*["'“”‘’([{<]+/, "")
+    .trim()
+    .replace(/^doi\s*:\s*/i, "")
     .trim();
-  input = input.replace(/^doi\s*:\s*/i, "");
-  input = input.replace(/^(?:https?:\/\/)?(?:dx\.)?doi\.org\//i, "");
-
-  const match = input.match(DOI_PATTERN);
-  if (!match) return undefined;
-  let doi = match[0].trim().replace(/[.,;:!?]+$/g, "");
-  doi = doi.replace(/[\])}>]+$/g, "");
-  if (!/^10\.\d{4,9}\/[._;()/:A-Z0-9-]+$/i.test(doi)) {
-    return undefined;
+  const wrappers: Record<string, string> = {
+    '"': '"',
+    "'": "'",
+    "(": ")",
+    "[": "]",
+    "{": "}",
+    "<": ">",
+    "“": "”",
+    "‘": "’",
+  };
+  while (wrappers[input[0]] && input.endsWith(wrappers[input[0]]))
+    input = input.slice(1, -1).trim();
+  if (/^(?:https?:\/\/)?(?:dx\.)?doi\.org\//i.test(input)) {
+    try {
+      const url = new URL(/^https?:/i.test(input) ? input : `https://${input}`);
+      if (url.username || url.password) return undefined;
+      input = decodeURIComponent(url.pathname.slice(1));
+    } catch {
+      return undefined;
+    }
   }
-  return doi.toLowerCase();
+  // The suffix is opaque. In particular, parentheses and terminal punctuation
+  // can be part of the registered DOI and must survive round trips unchanged.
+  if (
+    [...input].some(
+      (character) =>
+        character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127,
+    )
+  )
+    return undefined;
+  return DOI_PATTERN.test(input) ? input.toLowerCase() : undefined;
 }
 
 function findDOIs(value: unknown) {
   const raw = asString(value);
   if (!raw) return [];
+  const exact = normalizeDOI(raw);
+  if (exact) return [exact];
   const values: string[] = [];
   for (const match of raw.matchAll(DOI_SEARCH_PATTERN)) {
     const doi = normalizeDOI(match[0]);
@@ -436,14 +457,16 @@ function schemaTypeNames(node: UnknownRecord) {
 }
 
 function isArticleNode(node: UnknownRecord) {
-  return schemaTypeNames(node).some(
+  const types = schemaTypeNames(node);
+  if (types.some((type) => type === "newsarticle" || type === "blogposting"))
+    return false;
+  return types.some(
     (type) =>
       type === "article" ||
       type === "scholarlyarticle" ||
-      type === "newsarticle" ||
-      type === "techarticle" ||
-      type === "blogposting" ||
-      type.endsWith("article"),
+      type === "medicalscholarlyarticle" ||
+      type === "conferencepaper" ||
+      type === "proceedingsarticle",
   );
 }
 
@@ -574,9 +597,15 @@ function buildSchemaCandidate(
   const identifiers = schemaIdentifiers(node, document);
   const types = schemaTypeNames(node);
   const isPartOf = schemaArray(node.isPartOf).find(isRecord);
-  const isPartOfName = isPartOf
-    ? schemaText(isPartOf.name, document, 2_000)
-    : undefined;
+  const partTypes = isPartOf ? schemaTypeNames(isPartOf) : [];
+  const isPartOfName =
+    isPartOf &&
+    (!partTypes.length ||
+      partTypes.some((type) =>
+        ["periodical", "publicationissue", "publicationvolume"].includes(type),
+      ))
+      ? schemaText(isPartOf.name, document, 2_000)
+      : undefined;
   const isConference = types.some(
     (type) => type.includes("conference") || type.includes("proceedings"),
   );
@@ -588,7 +617,7 @@ function buildSchemaCandidate(
     schemaText(node.proceedingsTitle, document, 2_000) ||
     schemaText(node.conferenceTitle, document, 2_000) ||
     (isConference ? isPartOfName : undefined);
-  const dates = [node.datePublished, node.dateCreated, node.dateIssued]
+  const dates = [node.dateIssued, node.datePublished]
     .map((value) => normalizeDate(value, document))
     .filter((value): value is string => Boolean(value));
   const pages = schemaPageData(node, document);
@@ -628,6 +657,14 @@ function buildSchemaCandidate(
     pageRange: pages.range,
     articleNumber: pages.articleNumber,
     articleLike: true,
+    scholarly: types.some((type) =>
+      [
+        "scholarlyarticle",
+        "medicalscholarlyarticle",
+        "conferencepaper",
+        "proceedingsarticle",
+      ].includes(type),
+    ),
     evidence: ["schema.org"],
     publisherNames: publisher.names,
     publisherURLs: publisher.urls,
@@ -672,14 +709,10 @@ function highwireCandidate(
   );
   const publicationDate = firstDate(
     metadata,
-    ["citation_publication_date", "citation_date", "citation_issue_date"],
+    ["citation_issue_date", "citation_publication_date", "citation_date"],
     document,
   );
-  const onlineDate = firstDate(
-    metadata,
-    ["citation_online_date", "citation_accepted_date"],
-    document,
-  );
+  const onlineDate = firstDate(metadata, ["citation_online_date"], document);
   const firstPage = firstText(metadata, ["citation_firstpage"], document, 100);
   const lastPage = firstText(metadata, ["citation_lastpage"], document, 100);
   const range = pageRange(firstPage, lastPage, document);
@@ -809,7 +842,7 @@ function dublinCoreCandidate(
   );
   const date = firstDate(
     metadata,
-    ["dcterms.issued", "dcterms.created", "dc.date", "dcterms.date"],
+    ["dcterms.issued", "dc.date", "dcterms.date"],
     document,
   );
   const publicationTitle = firstText(
@@ -1219,7 +1252,6 @@ function mergeRecord(
     "proceedingsTitle",
     "volume",
     "issue",
-    "pages",
     "publisher",
     "ISSN",
     "ISBN",
@@ -1231,6 +1263,10 @@ function mergeRecord(
       .find(Boolean);
     if (value) fields[field] = value;
   }
+  const pages =
+    ordered.map((candidate) => candidate.pageRange).find(Boolean) ||
+    ordered.map((candidate) => candidate.articleNumber).find(Boolean);
+  if (pages) fields.pages = pages;
 
   const publicationDate = ordered
     .map((candidate) => candidate.publicationDate)
@@ -1326,6 +1362,16 @@ export function extractPublisherPage(
   );
   if (!articleCandidates.length)
     return fail(publicationLinks, "unsupported-page");
+  if (
+    !articleCandidates.some(
+      (candidate) =>
+        candidate.scholarly ||
+        candidate.fields.publicationTitle ||
+        candidate.fields.proceedingsTitle,
+    )
+  ) {
+    return fail(publicationLinks, "unsupported-page");
+  }
   if (!articleCandidates.some((candidate) => candidate.title)) {
     return fail(publicationLinks, "incomplete");
   }

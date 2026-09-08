@@ -116,7 +116,7 @@ export async function applyPublisherRecord(
       item = await Zotero.Items.getAsync(snapshot.id);
       if (!item) throw new RefreshError("concurrent-edit");
       // Catch unsaved UI edits before reload, then compare persisted data too.
-      if (!sameSnapshot(snapshot, snapshotItem(item)))
+      if (item.hasChanged() || !sameSnapshot(snapshot, snapshotItem(item)))
         throw new RefreshError("concurrent-edit");
       await item.reload(["primaryData", "itemData", "creators"], true);
       cancellation.check();
