@@ -7,14 +7,14 @@ export default defineConfig({
   name: pkg.config.addonName,
   id: pkg.config.addonID,
   namespace: pkg.config.addonRef,
-  updateURL: `https://github.com/{{owner}}/{{repo}}/releases/download/release/${
-    pkg.version.includes("-") ? "update-beta.json" : "update.json"
-  }`,
+  updateURL: "",
   xpiDownloadLink:
     "https://github.com/{{owner}}/{{repo}}/releases/download/v{{version}}/{{xpiName}}.xpi",
 
   build: {
     assets: ["addon/**/*.*"],
+    // Keep source compatibility and the non-resolving development updater URL.
+    makeManifest: { enable: false },
     define: {
       ...pkg.config,
       author: pkg.author,
@@ -33,7 +33,7 @@ export default defineConfig({
           __env__: `"${process.env.NODE_ENV}"`,
         },
         bundle: true,
-        target: "firefox115",
+        target: "firefox140",
         outfile: `.scaffold/build/addon/content/scripts/${pkg.config.addonRef}.js`,
       },
     ],
@@ -41,6 +41,15 @@ export default defineConfig({
 
   test: {
     waitForPlugin: `() => Zotero.${pkg.config.addonInstance}.data.initialized`,
+    watch: false,
+    prefs: {
+      "extensions.zotero.addontemplate.liveSmoke":
+        process.env.PUBLISHER_LIVE_SMOKE === "1",
+    },
+  },
+
+  server: {
+    startArgs: ["-no-remote"],
   },
 
   // If you need to see a more detailed log, uncomment the following line:

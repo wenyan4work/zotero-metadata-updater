@@ -1,0 +1,27 @@
+{
+  "status": "ok",
+  "message-type": "work",
+  "message-version": "1.0.0",
+  "message": {
+    "DOI": "10.5555/EXAMPLE(1)",
+    "type": "journal-article",
+    "title": ["A Crossref <i>journal</i> record"],
+    "author": [
+      { "given": "Ada", "family": "Lovelace" },
+      { "name": "Example Research Group" }
+    ],
+    "container-title": ["Journal of Recorded Metadata"],
+    "published-print": { "date-parts": [[2022, 2, 28]] },
+    "published-online": { "date-parts": [[2021, 12, 31]] },
+    "published": { "date-parts": [[2020]] },
+    "volume": "12",
+    "issue": "3",
+    "page": "123-130",
+    "article-number": "e9",
+    "publisher": "Example Press",
+    "ISSN": ["2049-3630"],
+    "ISBN": ["978-0-306-40615-7"],
+    "URL": "https://publisher.example/articles/example",
+    "abstract": "<jats:p>Background <jats:italic>and</jats:italic> findings.</jats:p><script>drop this</script>"
+  }
+}
