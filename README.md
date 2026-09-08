@@ -52,7 +52,8 @@ existing creators.
 
 ## Development and validation
 
-Use Node.js/npm and `npm ci`. The manifest targets Zotero `10.0`–`10.*`; the
+Use Node.js 22.18+ within 22.x, 24.11+ within 24.x, or 26+, npm, and `npm ci`.
+The manifest targets Zotero `10.0`–`10.*`; the
 prototype is validated against the installed Zotero 10.0.1 (Gecko 140). Earlier
 Zotero versions are not claimed to be supported.
 

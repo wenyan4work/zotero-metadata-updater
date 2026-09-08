@@ -130,7 +130,9 @@ function plainText(value: unknown, document?: Document, limit = 50_000) {
     // Assigning inert metadata to a detached element decodes entities and
     // strips markup without evaluating scripts from the fetched page.
     element.innerHTML = raw;
-    text = (element.textContent || "").replace(/<[^>]*>/g, " ");
+    // textContent already removes markup; another tag regex would erase
+    // literal comparisons such as "x < y and y > z".
+    text = element.textContent || "";
   } else {
     text = raw
       .replace(/<[^>]*>/g, " ")

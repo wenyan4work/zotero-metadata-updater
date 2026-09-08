@@ -112,7 +112,7 @@ function plainText(value: string, limit: number): string | undefined {
     );
     for (const element of Array.from(
       document.querySelectorAll(
-        "script,style,template,iframe,object,embed,svg,math,link,meta,base,noscript",
+        "script,style,template,iframe,object,embed,svg,link,meta,base,noscript",
       ) as unknown as ArrayLike<Element>,
     )) {
       element.remove();

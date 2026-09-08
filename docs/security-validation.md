@@ -13,21 +13,12 @@ partial list. Complete alternative metadata sources remain eligible.
 
 ## Dependency audit
 
-Compatible lockfile updates reduced the npm audit report from 41 findings to 5
-(3 high, 1 moderate, 1 low). The production-only audit reports no findings.
-These counts include affected parent packages, not five independent flaws.
+Upgrading `zotero-plugin-scaffold` to 0.9.1 and Mocha to 12.0.0 brings in
+patched versions of `adm-zip`, `serialize-javascript`, and `diff`. Both
+`npm audit` and `npm audit --omit=dev` report zero known vulnerabilities as of
+2026-09-07. Development requires Node.js 22.18+ within 22.x, 24.11+ within 24.x,
+or 26+, matching the locked tool dependencies.
 
-The remaining development-tool findings are:
-
-- `adm-zip`, through `zotero-plugin-scaffold`: crafted ZIP input can cause excessive
-  memory allocation ([advisory](https://github.com/advisories/GHSA-xcpc-8h2w-3j85)).
-- `serialize-javascript`, through `mocha`: crafted objects can cause code execution
-  or excessive CPU use ([code execution](https://github.com/advisories/GHSA-5c6j-r48x-rmvq),
-  [CPU use](https://github.com/advisories/GHSA-qj8w-gfj5-8c6v)).
-- `diff`, through `mocha`: crafted patch input can cause denial of service
-  ([advisory](https://github.com/advisories/GHSA-73rr-hh4g-fpgx)).
-
-npm recommends scaffold 0.9.1 and Mocha 12, outside the currently declared
-compatibility ranges. Those upgrades need separate scaffold/runtime validation;
-no forced upgrades or cross-major overrides were applied. These findings remain
-open for development/CI tooling and are not an all-clear security assessment.
+This audit result covers known dependency advisories, not a guarantee of runtime
+security. DNS rebinding resistance and native Gecko credential/cache suppression
+remain unverified.

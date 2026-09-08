@@ -29,6 +29,26 @@ function page(
 }
 
 describe("publisher extraction", function () {
+  it("preserves literal comparisons while removing metadata markup", function () {
+    const result = extractPublisherPage(
+      page(
+        `<html><head>
+          <meta name="citation_title" content="Analysis when x &lt; y and y &gt; z">
+          <meta name="citation_journal_title" content="PLOS ONE">
+          <meta name="citation_abstract" content="&lt;b&gt;Bounds&lt;/b&gt; for x &lt; y and y &gt; z.">
+        </head></html>`,
+        "https://journals.plos.org/article",
+      ),
+      { viaDOI: false },
+    );
+    assert.isUndefined(result.reason);
+    assert.equal(result.record?.fields.title, "Analysis when x < y and y > z");
+    assert.equal(
+      result.record?.fields.abstractNote,
+      "Bounds for x < y and y > z.",
+    );
+  });
+
   it("compares encoded publisher-path identifiers with raw metadata without double decoding", function () {
     for (const doi of [
       "10.5555/example(123)",

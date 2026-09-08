@@ -20,6 +20,17 @@ function expectReason(data: unknown, doi: string, reason: string) {
 }
 
 describe("Crossref metadata extraction", function () {
+  it("preserves MathML text without retaining executable content", function () {
+    const data = copyFixture();
+    const message = messageOf(data);
+    message.title = ["Properties of <math><mi>x</mi></math>"];
+    message.abstract =
+      "<jats:p>For <math><mi>x</mi><mo>&lt;</mo><mi>y</mi></math> values.</jats:p><script>untrusted()</script>";
+    const record = extractCrossrefRecord(data, "10.5555/example(1)");
+    assert.equal(record.fields.title, "Properties of x");
+    assert.equal(record.fields.abstractNote, "For x<y values.");
+  });
+
   it("maps a recorded Crossref response without network access", function () {
     const record = extractCrossrefRecord(
       liveRecord,
