@@ -1,3 +1,4 @@
+import recorded from "./fixtures/live/publisher-heads.json";
 import { assert } from "chai";
 import { config } from "../package.json";
 import { resolvePublisher } from "../src/modules/publisherResolver";
@@ -91,12 +92,15 @@ describe("Crossref fallback and refresh options", function () {
   it("does not call Crossref after publisher success", async function () {
     let calls = 0;
     const record = await resolvePublisher(
-      base,
+      {
+        ...base,
+        fields: { ...base.fields, DOI: "10.1371/journal.pone.0000308" },
+      },
       new Cancellation(),
       async () => ({
-        url: "https://plos.org/article",
+        url: recorded[0].url,
         document: new (Zotero.getMainWindow().DOMParser)().parseFromString(
-          '<meta name="citation_title" content="Article"><meta name="citation_doi" content="10.1234/article">',
+          recorded[0].html,
           "text/html",
         ),
       }),
@@ -106,7 +110,7 @@ describe("Crossref fallback and refresh options", function () {
         return data;
       },
     );
-    assert.equal(record.fields.title, "Article");
+    assert.include(record.fields.title!, "Sharing Detailed Research Data");
     assert.equal(calls, 0);
   });
 

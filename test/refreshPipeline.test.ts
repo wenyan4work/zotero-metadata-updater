@@ -295,6 +295,9 @@ describe("publisher refresh", function () {
 
     it("preserves attachments and user data for publisher and Crossref updates", async function () {
       for (const provider of ["publisher", "crossref"]) {
+        item.setField("title", "Local title");
+        item.setField("abstractNote", "Old abstract");
+        await item.saveTx();
         const updateRecord =
           provider === "publisher"
             ? record
