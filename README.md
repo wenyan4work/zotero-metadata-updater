@@ -42,7 +42,13 @@ Requests use public HTTP(S) addresses with DNS and redirect validation, a 30-sec
 request timeout, a 120-second item deadline, at most ten requests per item, and
 5 MB per response. When Crossref fallback is eligible, publisher attempts receive
 nine requests and 90 seconds, reserving one request and 30 seconds for Crossref.
-Page scripts and unrestricted Zotero translators are not run.
+Requests bypass Zotero’s URL-logging HTTP helper, use anonymous channels, and
+disable response caching. Native request failures are reduced to fixed reason
+codes. Page scripts and unrestricted Zotero translators are not run.
+
+Publisher author lists are accepted only when every declared author can be
+parsed. Incomplete lists fall back to a complete alternative source or preserve
+existing creators.
 
 ## Development and validation
 
@@ -79,6 +85,8 @@ ZOTERO_PLUGIN_KILL_COMMAND=/usr/bin/true npm test
 
 Live tests read publisher pages without changing library records. They may fail
 when a provider is offline, blocks automated access, or changes its markup.
+
+Dependency security triage: [security validation](docs/security-validation.md).
 
 Implementation notes: [prototype implementation](docs/prototype-implementation.md).
 The older [metadata watcher proposal](docs/zotero-metadata-watch-plugin-plan.md)

@@ -169,6 +169,7 @@ describe("bounded publisher transport", function () {
         options!.requestObserver!({
           addEventListener: (type: string, fn: (event: unknown) => void) =>
             listeners.set(type, fn),
+          removeEventListener: () => {},
           abort: () => {
             aborted = true;
           },

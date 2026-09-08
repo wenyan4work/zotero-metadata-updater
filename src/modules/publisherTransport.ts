@@ -1,5 +1,6 @@
 import { RefreshError, type RetrievedPage } from "./refreshTypes";
 import { scheduleTimeout } from "../utils/timer";
+import { requestPrivately } from "./privateRequest";
 
 export const LIMITS = {
   requestMs: 30_000,
@@ -124,7 +125,11 @@ export async function resolvePublicHost(
           if (!count) throw new RefreshError("unavailable");
           resolve();
         } catch (error) {
-          reject(error);
+          reject(
+            error instanceof RefreshError
+              ? error
+              : new RefreshError("unavailable"),
+          );
         }
       },
     };
@@ -161,8 +166,7 @@ export type PageFetcher = (
 
 function createResponseFetcher(
   resolveHost = resolvePublicHost,
-  request: typeof Zotero.HTTP.request = (...args) =>
-    Zotero.HTTP.request(...args),
+  request: typeof Zotero.HTTP.request = requestPrivately,
   accept = "text/html,application/xhtml+xml",
 ) {
   return async (
@@ -185,8 +189,9 @@ function createResponseFetcher(
       let tooLarge = false;
       let remove = () => {};
       let response: XMLHttpRequest;
+      let removeObservers = () => {};
       try {
-        // successCodes:false and errorDelayMax:0 disable Zotero's built-in retries.
+        // The private adapter never retries; retain options for injected fetchers.
         const options = {
           followRedirects: false,
           responseType: "arraybuffer",
@@ -201,7 +206,7 @@ function createResponseFetcher(
             remove = cancellation.subscribe(cancel);
           },
           requestObserver: (xhr: XMLHttpRequest) => {
-            xhr.addEventListener("progress", (rawEvent) => {
+            const progress = (rawEvent: Event) => {
               const event = rawEvent as ProgressEvent;
               if (
                 event.loaded > LIMITS.bytes ||
@@ -210,8 +215,8 @@ function createResponseFetcher(
                 tooLarge = true;
                 xhr.abort();
               }
-            });
-            xhr.addEventListener("readystatechange", () => {
+            };
+            const ready = () => {
               if (
                 xhr.readyState === 2 &&
                 Number(xhr.getResponseHeader("Content-Length")) > LIMITS.bytes
@@ -219,7 +224,13 @@ function createResponseFetcher(
                 tooLarge = true;
                 xhr.abort();
               }
-            });
+            };
+            xhr.addEventListener("progress", progress);
+            xhr.addEventListener("readystatechange", ready);
+            removeObservers = () => {
+              xhr.removeEventListener("progress", progress);
+              xhr.removeEventListener("readystatechange", ready);
+            };
           },
         };
         response = await request("GET", url.href, options);
@@ -235,6 +246,7 @@ function createResponseFetcher(
         throw new RefreshError("unavailable");
       } finally {
         remove();
+        removeObservers();
       }
       cancellation.check();
       if (tooLarge) throw new RefreshError("too-large");
@@ -257,8 +269,7 @@ function createResponseFetcher(
 
 export function createPageFetcher(
   resolveHost = resolvePublicHost,
-  request: typeof Zotero.HTTP.request = (...args) =>
-    Zotero.HTTP.request(...args),
+  request: typeof Zotero.HTTP.request = requestPrivately,
 ): PageFetcher {
   const fetch = createResponseFetcher(resolveHost, request);
   return async (input, budget, cancellation) => {
@@ -293,8 +304,7 @@ export type JSONFetcher = (
 ) => Promise<unknown>;
 export function createJSONFetcher(
   resolveHost = resolvePublicHost,
-  request: typeof Zotero.HTTP.request = (...args) =>
-    Zotero.HTTP.request(...args),
+  request: typeof Zotero.HTTP.request = requestPrivately,
 ): JSONFetcher {
   const fetch = createResponseFetcher(resolveHost, request, "application/json");
   return async (url, budget, cancellation) => {
